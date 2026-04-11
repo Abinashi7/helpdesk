@@ -1,0 +1,11 @@
+{
+  "name": "helpdesk",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint"
+  }
+}
