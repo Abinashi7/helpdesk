@@ -7,7 +7,7 @@ AI-powered email ticket management system. Emails arrive via SendGrid/Mailgun we
 - **Runtime**: Bun
 - **Backend**: Express 5 + TypeScript + Prisma 6 (PostgreSQL + pgvector) + Redis + BullMQ
 - **Frontend**: React 19 + Vite 6 + Tailwind CSS 4 + shadcn/ui
-- **Auth**: express-session + connect-pg-simple
+- **Auth**: Database sessions
 - **AI**: Anthropic Claude API
 
 ## Monorepo layout

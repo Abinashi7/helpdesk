@@ -1,5 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
+  output          = "../generated/prisma"
   previewFeatures = ["postgresqlExtensions"]
 }
 
@@ -7,96 +8,4 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   extensions = [pgvector(map: "vector")]
-}
-
-enum Role {
-  ADMIN
-  AGENT
-}
-
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  FLAGGED
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum MessageDirection {
-  INBOUND
-  OUTBOUND
-}
-
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         Role     @default(AGENT)
-  createdAt    DateTime @default(now())
-
-  assignedTickets TicketAssignment[]
-
-  @@map("users")
-}
-
-model Ticket {
-  id        String       @id @default(cuid())
-  subject   String
-  body      String
-  summary   String?
-  status    TicketStatus @default(OPEN)
-  priority  Priority     @default(MEDIUM)
-  tags      String[]
-  fromEmail String
-  threadId  String?      @unique
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  messages    Message[]
-  assignments TicketAssignment[]
-
-  @@map("tickets")
-}
-
-model Message {
-  id        String           @id @default(cuid())
-  ticketId  String
-  fromEmail String
-  body      String
-  direction MessageDirection
-  sentByAI  Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  @@map("messages")
-}
-
-model KnowledgeBaseArticle {
-  id        String                     @id @default(cuid())
-  title     String
-  body      String
-  embedding Unsupported("vector(1536)")?
-  createdAt DateTime                   @default(now())
-  updatedAt DateTime                   @updatedAt
-
-  @@map("knowledge_base_articles")
-}
-
-model TicketAssignment {
-  ticketId   String
-  agentId    String
-  assignedAt DateTime @default(now())
-
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  agent  User   @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@id([ticketId, agentId])
-  @@map("ticket_assignments")
 }
