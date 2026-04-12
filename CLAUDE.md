@@ -106,22 +106,16 @@ await prisma.\$disconnect();
 
 ## E2E testing (Playwright)
 - Tests live in `e2e/tests/` — run with `bun run test:e2e` from root
-- Separate test database: `helpdesk_test` on port **5434** (container: `helpdesk_postgres_test`, auth: md5)
-- Test backend runs on port **3002** using `.env.test`; test frontend runs on port **5174**
-- `e2e/global-setup.ts` runs `prisma migrate deploy` against the test DB automatically before every test run
-- `e2e/playwright.config.ts` — two `webServer` entries (backend + frontend), `reuseExistingServer: !CI`
 - Connect to test DB in IDE: host `localhost`, port `5434`, user/pass/db `helpdesk` / `helpdesk` / `helpdesk_test`
+- Full setup details and test-writing conventions are in the `playwright-e2e-writer` agent (`backend/.claude/agents/playwright-e2e-writer.md`)
 
-```bash
-# Run all e2e tests
-bun run test:e2e
+### When to write e2e tests
+Use the **`playwright-e2e-writer` agent** to write Playwright tests. Invoke it:
+- After any new page or significant UI feature is implemented
+- When asked to write, add, or update e2e tests explicitly
+- After changes to auth flows, route guards, or role-based access
 
-# Interactive Playwright UI
-cd e2e && bun run test:ui
-
-# Migrate test DB manually
-cd backend && bun run db:migrate:test
-```
+Do NOT write e2e tests inline — always delegate to the agent so test conventions, auth helpers, and selector strategies stay consistent across the suite.
 
 ## Progress
 - **Phase 1** (Project setup) — done
