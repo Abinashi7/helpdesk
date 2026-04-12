@@ -15,13 +15,15 @@ AI-powered email ticket management system. Emails arrive via SendGrid/Mailgun we
 helpdesk/
 ├── backend/   — Express API (port 3001)
 ├── frontend/  — React app (port 5173)
+├── e2e/       — Playwright end-to-end tests
 ├── .env       — root env file (loaded by backend via --env-file ../.env)
-└── docker-compose.yml  — postgres (5432) + redis (6379)
+├── .env.test  — test env overrides (backend port 3002, postgres port 5434)
+└── docker-compose.yml  — postgres (5432) + postgres_test (5434) + redis (6379)
 ```
 
 ## Dev commands
 ```bash
-# Start infrastructure
+# Start infrastructure (includes test postgres on port 5434)
 docker compose up -d
 
 # Install deps (run from root)
@@ -48,12 +50,14 @@ cd frontend && bun run dev
 - Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
 - `customSession` plugin (from `better-auth/plugins`) used to append `role` to the session user object — `additionalFields` alone does NOT include DB fields in the session response
 
-**Protecting routes (`backend/src/middleware/requireAuth.ts`):**
-- `requireAuth` middleware calls `auth.api.getSession()` and attaches `res.locals.session` + `res.locals.user`
-- Returns 401 JSON if no session
+**Protecting routes (`backend/src/middleware/requireAuth.ts` + `requireAdmin.ts`):**
+- `requireAuth` calls `auth.api.getSession()`, attaches `res.locals.session` + `res.locals.user`, returns 401 if no session
+- `requireAdmin` checks `res.locals.user.role === 'admin'`, returns 403 otherwise
+- Always apply **both** to admin-scoped routes: `requireAuth, requireAdmin, handler`
 
 **Frontend (`frontend/src/lib/auth-client.ts`):**
-- `createAuthClient({ baseURL: 'http://localhost:3001' })` — hardcoded dev URL
+- `createAuthClient({ baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3001' })`
+- `VITE_API_URL` is set in `frontend/.env` (dev) and injected by Playwright webServer env for e2e tests
 - Use `authClient.useSession()` to read session in components
 - `authClient.signIn.email()` / `authClient.signOut()` for login/logout
 - `App.tsx` wraps protected routes in `<ProtectedLayout>` (auth check) or `<AdminLayout>` (auth + role === 'admin' check); non-admins hitting admin routes are redirected to `/`
@@ -63,8 +67,11 @@ cd frontend && bun run dev
 
 **Seeding / creating users:**
 ```bash
-# Seed admin (uses env vars SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD):
-cd backend && bun --env-file ../.env prisma/seed.ts
+# Seed admin into dev DB (uses SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD from .env):
+cd backend && bun run db:seed
+
+# Seed admin into test DB:
+cd backend && bun run db:seed:test
 
 # Create any user via inline script (bypass disableSignUp):
 cd backend && bun --env-file ../.env -e "
@@ -90,16 +97,44 @@ await prisma.\$disconnect();
 | `/` | any logged-in | `HomePage` |
 | `/users` | admin only | `UsersPage` |
 
+## Security hardening (done)
+- `requireAdmin` middleware (`backend/src/middleware/requireAdmin.ts`) — always pair with `requireAuth` on admin routes
+- `BETTER_AUTH_SECRET` validated at startup: min 32 chars, rejects placeholder value
+- Error handler never forwards `err.message` to clients — logs internally, returns generic 500
+- Rate limiting on `/api/auth/*splat` — **production only** (`NODE_ENV === 'production'`), 20 req / 15 min
+- `SESSION_SECRET` removed (was unused; better-auth uses `BETTER_AUTH_SECRET`)
+
+## E2E testing (Playwright)
+- Tests live in `e2e/tests/` — run with `bun run test:e2e` from root
+- Separate test database: `helpdesk_test` on port **5434** (container: `helpdesk_postgres_test`, auth: md5)
+- Test backend runs on port **3002** using `.env.test`; test frontend runs on port **5174**
+- `e2e/global-setup.ts` runs `prisma migrate deploy` against the test DB automatically before every test run
+- `e2e/playwright.config.ts` — two `webServer` entries (backend + frontend), `reuseExistingServer: !CI`
+- Connect to test DB in IDE: host `localhost`, port `5434`, user/pass/db `helpdesk` / `helpdesk` / `helpdesk_test`
+
+```bash
+# Run all e2e tests
+bun run test:e2e
+
+# Interactive Playwright UI
+cd e2e && bun run test:ui
+
+# Migrate test DB manually
+cd backend && bun run db:migrate:test
+```
+
 ## Progress
 - **Phase 1** (Project setup) — done
 - **Phase 2** (Auth) — done: better-auth, login page with react-hook-form + zod, session-based protected routes, seed script with admin user
 - **Phase 2.5** (Role-based access) — done: `customSession` plugin exposes role, `AdminLayout` guard, admin-only nav links, agent test user
+- **Phase 2.6** (Security hardening) — done: `requireAdmin`, secret validation, error handler hardening, rate limiting (prod only), Playwright e2e setup with separate test DB
 - **Phase 3+** — not started
 
 ## Frontend notes
 - shadcn/ui initialized with `base-nova` style, `neutral` color scheme, Tailwind v4 CSS variables
 - Components available: `Button`, `Input`, `Label` (in `frontend/src/components/ui/`)
 - Chrome autofill style override in `frontend/src/index.css` (uses hardcoded colors + `!important`)
+- `frontend/src/vite-env.d.ts` provides `import.meta.env` types (standard Vite file, required for `VITE_*` env vars)
 
 ## Using Context7 for documentation
 Always use Context7 MCP to fetch current documentation before writing code that uses any library, framework, or API. Training data may be outdated.

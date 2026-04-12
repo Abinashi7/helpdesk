@@ -2,10 +2,11 @@
   "name": "helpdesk",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["backend", "frontend"],
+  "workspaces": ["backend", "frontend", "e2e"],
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
-    "lint": "bun run --filter '*' lint"
+    "lint": "bun run --filter '*' lint",
+    "test:e2e": "bun run --filter '@helpdesk/e2e' test"
   }
 }

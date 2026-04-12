@@ -14,17 +14,19 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 
-  // Rate-limit auth endpoints to mitigate brute-force attacks
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests, please try again later.' },
-  });
-
   // Better Auth handler must come before express.json()
-  app.all('/api/auth/*splat', authLimiter, toNodeHandler(auth));
+  if (env.NODE_ENV === 'production') {
+    const authLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many requests, please try again later.' },
+    });
+    app.all('/api/auth/*splat', authLimiter, toNodeHandler(auth));
+  } else {
+    app.all('/api/auth/*splat', toNodeHandler(auth));
+  }
 
   app.use(express.json());
   app.use(morgan('dev'));

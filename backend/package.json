@@ -12,7 +12,10 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
-    "db:seed": "bun --env-file ../.env prisma/seed.ts"
+    "db:seed": "bun --env-file ../.env prisma/seed.ts",
+    "db:seed:test": "bun --env-file ../.env.test prisma/seed.ts",
+    "dev:test": "bun --env-file ../.env.test src/index.ts",
+    "db:migrate:test": "bun --env-file ../.env.test -e \"import { execSync } from 'child_process'; execSync('npx prisma migrate deploy', { stdio: 'inherit' });\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.36.3",
