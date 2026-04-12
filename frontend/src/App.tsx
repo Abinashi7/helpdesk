@@ -1,23 +1,42 @@
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { authClient } from '@/lib/auth-client';
+import LoginPage from '@/pages/LoginPage';
+import HomePage from '@/pages/HomePage';
+import Navbar from '@/components/Navbar';
 
-export default function App() {
-  const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+function ProtectedLayout() {
+  const { data: session, isPending } = authClient.useSession();
 
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => (res.ok ? setStatus('ok') : setStatus('error')))
-      .catch(() => setStatus('error'));
-  }, []);
+  if (isPending) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-sm text-gray-400">Loading…</span>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold">Welcome to helpdesk</h1>
-      <p className="text-sm">
-        Backend:{' '}
-        {status === 'loading' && <span className="text-gray-400">checking...</span>}
-        {status === 'ok' && <span className="text-green-600">healthy</span>}
-        {status === 'error' && <span className="text-red-600">unreachable</span>}
-      </p>
-    </div>
+    <>
+      <Navbar />
+      <Outlet />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<HomePage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
