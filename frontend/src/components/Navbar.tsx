@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 
@@ -11,9 +11,23 @@ export default function Navbar() {
     navigate('/login');
   }
 
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin';
+
   return (
     <nav className="flex h-14 items-center justify-between border-b bg-card px-6">
-      <span className="font-semibold">Helpdesk</span>
+      <div className="flex items-center gap-6">
+        <span className="font-semibold">Helpdesk</span>
+        {isAdmin && (
+          <NavLink
+            to="/users"
+            className={({ isActive }) =>
+              `text-sm ${isActive ? 'text-foreground font-medium' : 'text-gray-500 hover:text-foreground'}`
+            }
+          >
+            Users
+          </NavLink>
+        )}
+      </div>
       <div className="flex items-center gap-4">
         {session?.user.name && (
           <span className="text-sm text-gray-600">{session.user.name}</span>

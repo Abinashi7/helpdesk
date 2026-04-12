@@ -46,6 +46,7 @@ cd frontend && bun run dev
 - Auth routes mounted at `/api/auth/*` via `toNodeHandler(auth)` — must come before `express.json()`
 - CORS configured with `credentials: true` for `FRONTEND_URL`
 - Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
+- `customSession` plugin (from `better-auth/plugins`) used to append `role` to the session user object — `additionalFields` alone does NOT include DB fields in the session response
 
 **Protecting routes (`backend/src/middleware/requireAuth.ts`):**
 - `requireAuth` middleware calls `auth.api.getSession()` and attaches `res.locals.session` + `res.locals.user`
@@ -55,20 +56,44 @@ cd frontend && bun run dev
 - `createAuthClient({ baseURL: 'http://localhost:3001' })` — hardcoded dev URL
 - Use `authClient.useSession()` to read session in components
 - `authClient.signIn.email()` / `authClient.signOut()` for login/logout
-- `App.tsx` wraps protected routes in `<ProtectedLayout>` which redirects to `/login` if no session
+- `App.tsx` wraps protected routes in `<ProtectedLayout>` (auth check) or `<AdminLayout>` (auth + role === 'admin' check); non-admins hitting admin routes are redirected to `/`
+- Access role via `session.user as { role?: string }` cast — `customSessionClient` not used (would require importing backend types into frontend)
 
-**Seeding admin (`backend/prisma/seed.ts`):**
+**Roles:** `admin` | `agent` (Prisma enum). Navbar shows admin-only links based on `session.user.role`.
+
+**Seeding / creating users:**
 ```bash
-# Requires in .env:
-SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=yourpassword
-
+# Seed admin (uses env vars SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD):
 cd backend && bun --env-file ../.env prisma/seed.ts
+
+# Create any user via inline script (bypass disableSignUp):
+cd backend && bun --env-file ../.env -e "
+import { betterAuth } from 'better-auth';
+import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { PrismaClient } from './generated/prisma/index.js';
+const prisma = new PrismaClient();
+const auth = betterAuth({ baseURL: process.env.BETTER_AUTH_URL, secret: process.env.BETTER_AUTH_SECRET, database: prismaAdapter(prisma, { provider: 'postgresql' }), emailAndPassword: { enabled: true } });
+await auth.api.signUpEmail({ body: { email: 'user@example.com', password: 'password123', name: 'Name' } });
+// optionally: await prisma.user.update({ where: { email: '...' }, data: { role: 'admin' } });
+await prisma.\$disconnect();
+"
 ```
+
+**Test users (dev):**
+- admin@example.com / (see .env SEED_ADMIN_PASSWORD) — role: admin
+- agent@example.com / password123 — role: agent
+
+## Pages & routes
+| Path | Access | Component |
+|------|--------|-----------|
+| `/login` | public | `LoginPage` |
+| `/` | any logged-in | `HomePage` |
+| `/users` | admin only | `UsersPage` |
 
 ## Progress
 - **Phase 1** (Project setup) — done
 - **Phase 2** (Auth) — done: better-auth, login page with react-hook-form + zod, session-based protected routes, seed script with admin user
+- **Phase 2.5** (Role-based access) — done: `customSession` plugin exposes role, `AdminLayout` guard, admin-only nav links, agent test user
 - **Phase 3+** — not started
 
 ## Frontend notes
