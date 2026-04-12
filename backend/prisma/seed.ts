@@ -15,30 +15,30 @@ const seedAuth = betterAuth({
   emailAndPassword: { enabled: true },
 });
 
-async function main() {
-  const email = process.env.SEED_ADMIN_EMAIL;
-  const password = process.env.SEED_ADMIN_PASSWORD;
+async function createUser(email: string, password: string, name: string, role: Role) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    console.log(`User already exists: ${email}`);
+    return;
+  }
+  const response = await seedAuth.api.signUpEmail({ body: { email, password, name } });
+  await prisma.user.update({
+    where: { id: response.user.id },
+    data: { role, emailVerified: true },
+  });
+  console.log(`User created: ${email} (${role})`);
+}
 
-  if (!email || !password) {
+async function main() {
+  const adminEmail = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
     throw new Error('SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD must be set');
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    console.log(`Admin user already exists: ${email}`);
-    return;
-  }
-
-  const response = await seedAuth.api.signUpEmail({
-    body: { email, password, name: 'Admin' },
-  });
-
-  await prisma.user.update({
-    where: { id: response.user.id },
-    data: { role: Role.admin, emailVerified: true },
-  });
-
-  console.log(`Admin user created: ${email}`);
+  await createUser(adminEmail, adminPassword, 'Admin', Role.admin);
+  await createUser('agent@example.com', 'password123', 'Agent', Role.agent);
 }
 
 main()

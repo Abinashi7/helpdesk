@@ -19,9 +19,19 @@ export default defineConfig({
   },
 
   projects: [
+    // ── Auth setup project ───────────────────────────────────────────────────
+    // Runs auth.setup.ts first; saves admin + agent storageState to .auth/
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+
+    // ── Main test project ────────────────────────────────────────────────────
+    // Depends on setup so that .auth/ files are always present before tests run
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
 
