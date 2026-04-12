@@ -19,6 +19,10 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(16, 'BETTER_AUTH_SECRET must be at least 16 characters'),
   BETTER_AUTH_URL: z.string().url().default('http://localhost:3001'),
 
+  // Seed
+  SEED_ADMIN_EMAIL: z.string().email().optional(),
+  SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
+
   // Email
   EMAIL_PROVIDER: z.enum(['sendgrid', 'mailgun']).default('sendgrid'),
   SENDGRID_API_KEY: z.string().optional(),

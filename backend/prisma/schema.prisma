@@ -11,12 +11,18 @@ datasource db {
   extensions = [pgvector(map: "vector")]
 }
 
+enum Role {
+  admin
+  agent
+}
+
 model User {
   id            String    @id
   name          String
   email         String
   emailVerified Boolean   @default(false)
   image         String?
+  role          Role      @default(agent)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
