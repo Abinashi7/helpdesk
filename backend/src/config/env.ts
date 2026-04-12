@@ -12,11 +12,14 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
-  // Session
-  SESSION_SECRET: z.string().min(16, 'SESSION_SECRET must be at least 16 characters'),
-
-  // Better Auth
-  BETTER_AUTH_SECRET: z.string().min(16, 'BETTER_AUTH_SECRET must be at least 16 characters'),
+  // Better Auth — session tokens are signed with this secret.
+  // Generate with: openssl rand -base64 32
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32, 'BETTER_AUTH_SECRET must be at least 32 characters')
+    .refine((s) => s !== 'change-me-to-a-random-32-char-secret', {
+      message: 'BETTER_AUTH_SECRET must not be the default placeholder value',
+    }),
   BETTER_AUTH_URL: z.string().url().default('http://localhost:3001'),
 
   // Seed

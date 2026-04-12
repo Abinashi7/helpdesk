@@ -4,11 +4,15 @@ import { PrismaClient, Role } from '../generated/prisma/index.js';
 
 const prisma = new PrismaClient();
 
+// Note: disableSignUp is set for consistency with the production auth instance.
+// auth.api.signUpEmail() called directly bypasses the HTTP-layer check, so seeding
+// still works — but this prevents the seed instance from ever being accidentally
+// mounted as a request handler and accepting public registrations.
 const seedAuth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
   secret: process.env.BETTER_AUTH_SECRET!,
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: { enabled: true, disableSignUp: true },
 });
 
 async function main() {
@@ -31,7 +35,7 @@ async function main() {
 
   await prisma.user.update({
     where: { id: response.user.id },
-    data: { role: Role.admin },
+    data: { role: Role.admin, emailVerified: true },
   });
 
   console.log(`Admin user created: ${email}`);
