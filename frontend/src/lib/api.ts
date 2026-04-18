@@ -1,7 +1,11 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3001',
+  withCredentials: true,
+});
 
 export async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json() as Promise<T>;
+  const res = await api.get<T>(path);
+  return res.data;
 }
