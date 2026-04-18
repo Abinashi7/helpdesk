@@ -16,7 +16,7 @@ export default function Navbar() {
   return (
     <nav className="flex h-14 items-center justify-between border-b bg-card px-6">
       <div className="flex items-center gap-6">
-        <span className="font-semibold">Helpdesk</span>
+        <NavLink to="/" className="font-semibold hover:text-foreground/80">Helpdesk</NavLink>
         {isAdmin && (
           <NavLink
             to="/users"

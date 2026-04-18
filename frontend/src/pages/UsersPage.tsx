@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type Role = 'admin' | 'agent';
 
@@ -38,7 +39,28 @@ export default function UsersPage() {
       <h1 className="text-2xl font-semibold">Users</h1>
 
       {isPending && (
-        <p className="mt-6 text-sm text-gray-500">Loading…</p>
+        <div className="mt-6 overflow-hidden rounded-xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {isError && (
