@@ -7,6 +7,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { env } from './config/env.js';
 import { auth } from './lib/auth.js';
 import { errorHandler } from './middleware/error.js';
+import usersRouter from './routes/users.js';
 
 export function createApp(): Application {
   const app = express();
@@ -34,6 +35,8 @@ export function createApp(): Application {
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   });
+
+  app.use('/api/users', usersRouter);
 
   app.use(errorHandler);
 
