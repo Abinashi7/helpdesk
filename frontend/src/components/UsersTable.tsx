@@ -1,4 +1,6 @@
+import { Pencil } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 export interface User {
   id: string;
@@ -28,6 +30,7 @@ const columns = (
     <th className="px-4 py-3">Email</th>
     <th className="px-4 py-3">Role</th>
     <th className="px-4 py-3">Joined</th>
+    <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
   </tr>
 );
 
@@ -35,9 +38,10 @@ interface UsersTableProps {
   users: User[] | undefined;
   isPending: boolean;
   isError: boolean;
+  onEdit: (user: User) => void;
 }
 
-export function UsersTable({ users, isPending, isError }: UsersTableProps) {
+export function UsersTable({ users, isPending, isError, onEdit }: UsersTableProps) {
   if (isError) {
     return <p className="mt-6 text-sm text-destructive">Failed to load users.</p>;
   }
@@ -56,6 +60,7 @@ export function UsersTable({ users, isPending, isError }: UsersTableProps) {
                   <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-5 w-14 rounded-full" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-7 w-7 rounded-md" /></td>
                 </tr>
               ))
             : users?.map((user) => (
@@ -69,6 +74,16 @@ export function UsersTable({ users, isPending, isError }: UsersTableProps) {
                       month: 'short',
                       day: 'numeric',
                     })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${user.name}`}
+                      onClick={() => onEdit(user)}
+                    >
+                      <Pencil />
+                    </Button>
                   </td>
                 </tr>
               ))}

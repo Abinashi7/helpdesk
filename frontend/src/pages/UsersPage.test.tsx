@@ -43,7 +43,7 @@ describe('UsersPage', () => {
     expect(screen.getByRole('columnheader', { name: /name/i })).toBeInTheDocument();
     expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument();
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(16); // 4 rows × 4 columns
+    expect(skeletons.length).toBe(20); // 4 rows × 5 columns
   });
 
   it('renders all users after a successful fetch', async () => {

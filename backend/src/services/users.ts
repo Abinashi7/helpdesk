@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { hashPassword } from 'better-auth/crypto';
 import { prisma } from '../lib/db.js';
 import { Role } from '../lib/types.js';
 import { env } from '../config/env.js';
@@ -29,6 +30,33 @@ export async function listUsers() {
 
 export async function getUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
+}
+
+export async function getUserById(id: string) {
+  return prisma.user.findUnique({ where: { id } });
+}
+
+export async function updateUser(
+  id: string,
+  data: { name: string; email: string; password?: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id },
+      data: { name: data.name, email: data.email },
+      select: userSelect,
+    });
+
+    if (data.password) {
+      const hashed = await hashPassword(data.password);
+      await tx.account.updateMany({
+        where: { userId: id, providerId: 'credential' },
+        data: { password: hashed },
+      });
+    }
+
+    return user;
+  });
 }
 
 export async function createUser(name: string, email: string, password: string) {
