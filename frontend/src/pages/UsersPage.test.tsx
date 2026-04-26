@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import UsersPage from './UsersPage';
 import * as api from '@/lib/api';
@@ -94,5 +95,39 @@ describe('UsersPage', () => {
       expect(screen.getByRole('columnheader', { name: /name/i })).toBeInTheDocument()
     );
     expect(screen.queryByRole('row', { name: /alice/i })).not.toBeInTheDocument();
+  });
+
+  describe('modal visibility', () => {
+    beforeEach(() => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ users: MOCK_USERS });
+    });
+
+    it('modal is hidden by default', () => {
+      renderWithQuery(<UsersPage />);
+      expect(screen.queryByRole('heading', { name: /create user/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the modal when "Create user" button is clicked', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<UsersPage />);
+      await user.click(screen.getByRole('button', { name: /create user/i }));
+      expect(screen.getByRole('heading', { name: /create user/i })).toBeInTheDocument();
+    });
+
+    it('hides the modal when clicking the backdrop', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<UsersPage />);
+      await user.click(screen.getByRole('button', { name: /create user/i }));
+      await user.click(screen.getByTestId('modal-backdrop'));
+      expect(screen.queryByRole('heading', { name: /create user/i })).not.toBeInTheDocument();
+    });
+
+    it('hides the modal when pressing Escape', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<UsersPage />);
+      await user.click(screen.getByRole('button', { name: /create user/i }));
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('heading', { name: /create user/i })).not.toBeInTheDocument();
+    });
   });
 });

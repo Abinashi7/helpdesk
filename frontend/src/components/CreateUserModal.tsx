@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +11,14 @@ import { type User } from '@/components/UsersTable';
 
 export function CreateUserModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
   const {
     register,
     handleSubmit,
@@ -33,7 +42,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50" data-testid="modal-backdrop" onClick={onClose} />
       <div className="relative z-50 w-full max-w-md rounded-xl border bg-background p-6 shadow-lg">
         <h2 className="mb-5 text-lg font-semibold">Create user</h2>
         <form
