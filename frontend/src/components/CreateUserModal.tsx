@@ -1,0 +1,103 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { createUserSchema, type CreateUserInput } from '@helpdesk/core';
+import { apiPost } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { type User } from '@/components/UsersTable';
+
+export function CreateUserModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<CreateUserInput>({ resolver: zodResolver(createUserSchema) });
+
+  const mutation = useMutation({
+    mutationFn: (data: CreateUserInput) => apiPost<{ user: User }>('/api/users', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
+        'Failed to create user';
+      setError('root', { message: msg });
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-50 w-full max-w-md rounded-xl border bg-background p-6 shadow-lg">
+        <h2 className="mb-5 text-lg font-semibold">Create user</h2>
+        <form
+          onSubmit={handleSubmit((data) => mutation.mutate(data))}
+          noValidate
+          className="flex flex-col gap-4"
+        >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cu-name">Name</Label>
+            <Input
+              id="cu-name"
+              placeholder="Jane Smith"
+              autoComplete="off"
+              aria-invalid={!!errors.name}
+              {...register('name')}
+            />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cu-email">Email</Label>
+            <Input
+              id="cu-email"
+              type="email"
+              placeholder="jane@example.com"
+              autoComplete="off"
+              aria-invalid={!!errors.email}
+              {...register('email')}
+            />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cu-password">Password</Label>
+            <Input
+              id="cu-password"
+              type="password"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
+              {...register('password')}
+            />
+            {errors.password && (
+              <p className="text-xs text-destructive">{errors.password.message}</p>
+            )}
+          </div>
+          {errors.root && (
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errors.root.message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={mutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Creating…' : 'Create user'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

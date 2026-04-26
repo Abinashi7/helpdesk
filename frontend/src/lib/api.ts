@@ -9,3 +9,8 @@ export async function apiFetch<T>(path: string): Promise<T> {
   const res = await api.get<T>(path);
   return res.data;
 }
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await api.post<T>(path, body);
+  return res.data;
+}

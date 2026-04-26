@@ -13,6 +13,7 @@ AI-powered email ticket management system. Emails arrive via SendGrid/Mailgun we
 ## Monorepo layout
 ```
 helpdesk/
+├── core/      — shared package (@helpdesk/core): Zod schemas and types used by both backend and frontend
 ├── backend/   — Express API (port 3001)
 ├── frontend/  — React app (port 5173)
 ├── e2e/       — Playwright end-to-end tests
@@ -20,6 +21,13 @@ helpdesk/
 ├── .env.test  — test env overrides (backend port 3002, postgres port 5434)
 └── docker-compose.yml  — postgres (5432) + postgres_test (5434) + redis (6379)
 ```
+
+## Shared code (`core/`)
+Any Zod schema that is used for both API validation (backend) and form validation (frontend) must live in `core/src/schemas/`. Export it from `core/src/index.ts` and import it in both packages as `@helpdesk/core`. Never duplicate a schema — if it validates a request body on the server it should be the same object validating the form on the client.
+
+- Schema files: `core/src/schemas/<resource>.ts`
+- Each schema file exports the schema and its inferred type (`z.infer<typeof ...>`)
+- `core` has no build step — Bun and Vite both resolve TypeScript source directly via the `exports` field in `core/package.json`
 
 ## Dev commands
 ```bash
@@ -64,6 +72,7 @@ cd frontend && bun run dev
 - Access role via `session.user as { role?: string }` cast — `customSessionClient` not used (would require importing backend types into frontend)
 
 **Roles:** `admin` | `agent` (Prisma enum). Navbar shows admin-only links based on `session.user.role`.
+- Always use the `Role` enum (re-exported from `backend/src/lib/types.ts`) instead of raw strings — e.g. `Role.agent`, not `'agent'`.
 
 **Seeding / creating users:**
 ```bash
