@@ -104,6 +104,37 @@ await prisma.\$disconnect();
 - Rate limiting on `/api/auth/*splat` — **production only** (`NODE_ENV === 'production'`), 20 req / 15 min
 - `SESSION_SECRET` removed (was unused; better-auth uses `BETTER_AUTH_SECRET`)
 
+## Component testing (Vitest + React Testing Library)
+
+Tests live in `frontend/src/` alongside the component they test (e.g. `UsersPage.test.tsx` next to `UsersPage.tsx`).
+
+### Commands (run from `frontend/`)
+```bash
+bun run test          # single run (CI)
+bun run test:watch    # watch mode — reruns on save
+bun run test:ui       # browser UI at localhost:51204/__vitest__/ — best for writing tests
+```
+
+### Setup files
+- `frontend/src/test/setup.ts` — imports `@testing-library/jest-dom` to extend `expect` with DOM matchers
+- `frontend/src/test/renderWithQuery.tsx` — `renderWithQuery(ui)` helper that wraps any component in a fresh `QueryClientProvider` (retry disabled)
+
+### Conventions
+- Mock `@/lib/api` at the module level with `vi.mock('@/lib/api')`, then set per-test behaviour with `vi.mocked(api.apiFetch).mockResolvedValue(...)` / `.mockRejectedValue(...)`
+- Always use `vi.resetAllMocks()` in `beforeEach` so mock state never leaks between tests
+- Use `await waitFor(...)` for anything that depends on a resolved query; check synchronously for loading/pending state by returning a never-resolving promise: `new Promise(() => {})`
+- Use noon UTC timestamps in mock dates (`T12:00:00Z`) to avoid timezone-boundary failures across environments
+- Import `{ vi, describe, it, expect, beforeEach }` explicitly from `vitest` — `globals: true` is enabled but explicit imports are preferred for clarity
+
+### What to test per component
+| State | How |
+|-------|-----|
+| Loading skeleton | mock `apiFetch` with `new Promise(() => {})`, assert skeleton elements and absence of real data |
+| Success | mock resolved value, `waitFor` real data to appear |
+| Error | mock rejected value, `waitFor` error message |
+| Role badges / formatting | assert text content after successful fetch |
+| Correct API call | `expect(api.apiFetch).toHaveBeenCalledWith('/api/...')` |
+
 ## E2E testing (Playwright)
 - Tests live in `e2e/tests/` — run with `bun run test:e2e` from root
 - Connect to test DB in IDE: host `localhost`, port `5434`, user/pass/db `helpdesk` / `helpdesk` / `helpdesk_test`
