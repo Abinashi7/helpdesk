@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type IRouter } from 'express';
 import { createUserSchema, updateUserSchema } from '@helpdesk/core';
 import { Role } from '../lib/types.js';
 import { validate } from '../lib/validate.js';
@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/requireAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { listUsers, getUserByEmail, createUser, getUserById, updateUser, deleteUser } from '../services/users.js';
 
-const router = Router();
+const router: IRouter = Router();
 
 router.get('/', requireAuth, requireAdmin, async (_req, res) => {
   const users = await listUsers();
