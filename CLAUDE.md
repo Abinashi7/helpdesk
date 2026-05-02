@@ -29,14 +29,28 @@ Any Zod schema that is used for both API validation (backend) and form validatio
 - Each schema file exports the schema and its inferred type (`z.infer<typeof ...>`)
 - `core` has no build step — Bun and Vite both resolve TypeScript source directly via the `exports` field in `core/package.json`
 
-## Role enum
-The `Role` const is defined in `core/src/enums.ts` and exported from `@helpdesk/core`:
+## Enums
+All enums live in `core/src/enums.ts` and are exported from `@helpdesk/core`. **Never define an enum only in the Prisma-generated client** — always mirror it here so both backend and frontend can import from the same source.
+
+Current enums: `Role`, `TicketStatus`, `TicketCategory`.
+
 ```typescript
-import { Role } from '@helpdesk/core';
+import { Role, TicketStatus, TicketCategory } from '@helpdesk/core';
 ```
-- **Always use `Role.admin` / `Role.agent`** — never the raw strings `'admin'` or `'agent'`
-- This applies everywhere in the frontend (components, layouts, tests) and in backend code that does role comparisons
-- The backend also imports `Role` from the Prisma-generated client (`backend/src/lib/types.ts`) for Prisma operations — that is acceptable since Prisma requires its own enum type for DB writes. For plain comparisons, prefer the core `Role`
+- Use the const values everywhere (e.g. `Role.admin`, `TicketStatus.open`, `TicketCategory.billing`) — never raw strings
+- The backend may also import enums from the Prisma-generated client (`backend/src/lib/types.ts`) when required for DB writes — that is acceptable. For plain comparisons and Zod validation, always use the core enum.
+
+## Route body validation
+All route handlers validate request bodies using the shared `validate()` helper:
+
+```typescript
+import { validate } from '../lib/validate.js';
+
+const data = validate(mySchema, req.body, res);
+if (!data) return;
+```
+
+**Never** duplicate inline `safeParse` logic in a route handler. The helper lives at `backend/src/lib/validate.ts` and handles the 400 response automatically.
 
 ## Dev commands
 ```bash

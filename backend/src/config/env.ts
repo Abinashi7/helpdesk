@@ -32,6 +32,9 @@ const envSchema = z.object({
   MAILGUN_API_KEY: z.string().optional(),
   MAILGUN_DOMAIN: z.string().optional(),
 
+  // Webhooks
+  WEBHOOK_SECRET: z.string().optional(),
+
   // AI
   ANTHROPIC_API_KEY: z.string().optional(),
 });

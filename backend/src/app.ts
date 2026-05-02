@@ -8,6 +8,7 @@ import { env } from './config/env.js';
 import { auth } from './lib/auth.js';
 import { errorHandler } from './middleware/error.js';
 import usersRouter from './routes/users.js';
+import webhooksRouter from './routes/webhooks.js';
 
 export function createApp(): Application {
   const app = express();
@@ -37,6 +38,7 @@ export function createApp(): Application {
   });
 
   app.use('/api/users', usersRouter);
+  app.use('/api/webhooks', webhooksRouter);
 
   app.use(errorHandler);
 

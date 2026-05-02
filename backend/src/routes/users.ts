@@ -1,21 +1,12 @@
-import { Router, type Response } from 'express';
-import { z } from 'zod';
+import { Router } from 'express';
 import { createUserSchema, updateUserSchema } from '@helpdesk/core';
 import { Role } from '../lib/types.js';
+import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { listUsers, getUserByEmail, createUser, getUserById, updateUser, deleteUser } from '../services/users.js';
 
 const router = Router();
-
-function validate<T>(schema: z.ZodType<T>, body: unknown, res: Response): T | null {
-  const result = schema.safeParse(body);
-  if (!result.success) {
-    res.status(400).json({ error: result.error.errors[0].message });
-    return null;
-  }
-  return result.data;
-}
 
 router.get('/', requireAuth, requireAdmin, async (_req, res) => {
   const users = await listUsers();
