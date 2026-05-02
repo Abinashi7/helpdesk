@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { Role } from '@helpdesk/core';
 import { CreateUserModal } from './CreateUserModal';
 import * as api from '@/lib/api';
 import { renderWithQuery } from '@/test/renderWithQuery';
@@ -11,7 +12,7 @@ const MOCK_CREATED_USER = {
   id: '3',
   name: 'Jane Smith',
   email: 'jane@example.com',
-  role: 'agent' as const,
+  role: Role.agent,
   createdAt: '2024-06-01T12:00:00Z',
 };
 

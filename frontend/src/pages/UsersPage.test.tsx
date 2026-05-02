@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { Role } from '@helpdesk/core';
 import UsersPage from './UsersPage';
 import * as api from '@/lib/api';
 import { renderWithQuery } from '@/test/renderWithQuery';
@@ -12,14 +13,14 @@ const MOCK_USERS = [
     id: '1',
     name: 'Alice Smith',
     email: 'alice@example.com',
-    role: 'admin' as const,
+    role: Role.admin,
     createdAt: '2024-01-15T12:00:00Z',
   },
   {
     id: '2',
     name: 'Bob Jones',
     email: 'bob@example.com',
-    role: 'agent' as const,
+    role: Role.agent,
     createdAt: '2024-03-20T12:00:00Z',
   },
 ];

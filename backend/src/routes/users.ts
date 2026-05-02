@@ -1,9 +1,10 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { createUserSchema, updateUserSchema } from '@helpdesk/core';
+import { Role } from '../lib/types.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import { listUsers, getUserByEmail, createUser, getUserById, updateUser } from '../services/users.js';
+import { listUsers, getUserByEmail, createUser, getUserById, updateUser, deleteUser } from '../services/users.js';
 
 const router = Router();
 
@@ -58,6 +59,24 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
 
   const user = await updateUser(id, { name, email, password });
   res.json({ user });
+});
+
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params as { id: string };
+
+  const target = await getUserById(id);
+  if (!target) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  if (target.role === Role.admin) {
+    res.status(403).json({ error: 'Admin users cannot be deleted' });
+    return;
+  }
+
+  await deleteUser(id);
+  res.json({ success: true });
 });
 
 export default router;

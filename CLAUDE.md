@@ -29,6 +29,15 @@ Any Zod schema that is used for both API validation (backend) and form validatio
 - Each schema file exports the schema and its inferred type (`z.infer<typeof ...>`)
 - `core` has no build step — Bun and Vite both resolve TypeScript source directly via the `exports` field in `core/package.json`
 
+## Role enum
+The `Role` const is defined in `core/src/enums.ts` and exported from `@helpdesk/core`:
+```typescript
+import { Role } from '@helpdesk/core';
+```
+- **Always use `Role.admin` / `Role.agent`** — never the raw strings `'admin'` or `'agent'`
+- This applies everywhere in the frontend (components, layouts, tests) and in backend code that does role comparisons
+- The backend also imports `Role` from the Prisma-generated client (`backend/src/lib/types.ts`) for Prisma operations — that is acceptable since Prisma requires its own enum type for DB writes. For plain comparisons, prefer the core `Role`
+
 ## Dev commands
 ```bash
 # Start infrastructure (includes test postgres on port 5434)

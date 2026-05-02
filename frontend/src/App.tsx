@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Role } from '@helpdesk/core';
 import { authClient } from '@/lib/auth-client';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
@@ -6,7 +7,7 @@ import UsersPage from '@/pages/UsersPage';
 import Navbar from '@/components/Navbar';
 
 type SessionUser = ReturnType<typeof authClient.useSession>['data'] extends { user: infer U } | null
-  ? U & { role: 'admin' | 'agent' }
+  ? U & { role: Role }
   : never;
 
 function ProtectedLayout() {
@@ -48,7 +49,7 @@ function AdminLayout() {
   }
 
   const user = session.user as SessionUser;
-  if (user.role !== 'admin') {
+  if (user.role !== Role.admin) {
     return <Navigate to="/" replace />;
   }
 

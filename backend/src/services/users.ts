@@ -23,17 +23,25 @@ const userSelect = {
 
 export async function listUsers() {
   return prisma.user.findMany({
+    where: { deletedAt: null },
     select: userSelect,
     orderBy: { createdAt: 'asc' },
   });
 }
 
 export async function getUserByEmail(email: string) {
-  return prisma.user.findUnique({ where: { email } });
+  return prisma.user.findFirst({ where: { email, deletedAt: null } });
 }
 
 export async function getUserById(id: string) {
-  return prisma.user.findUnique({ where: { id } });
+  return prisma.user.findFirst({ where: { id, deletedAt: null } });
+}
+
+export async function deleteUser(id: string) {
+  return prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 }
 
 export async function updateUser(

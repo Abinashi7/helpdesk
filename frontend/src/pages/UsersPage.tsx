@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { UsersTable, type User } from '@/components/UsersTable';
 import { CreateUserModal } from '@/components/CreateUserModal';
 import { EditUserModal } from '@/components/EditUserModal';
+import { DeleteUserModal } from '@/components/DeleteUserModal';
 
 function fetchUsers() {
   return apiFetch<{ users: User[] }>('/api/users').then((d) => d.users);
@@ -13,6 +14,7 @@ function fetchUsers() {
 export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const { data: users, isPending, isError } = useQuery({
     queryKey: ['users'],
     queryFn: fetchUsers,
@@ -27,8 +29,9 @@ export default function UsersPage() {
 
       {modalOpen && <CreateUserModal onClose={() => setModalOpen(false)} />}
       {editingUser && <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} />}
+      {deletingUser && <DeleteUserModal user={deletingUser} onClose={() => setDeletingUser(null)} />}
 
-      <UsersTable users={users} isPending={isPending} isError={isError} onEdit={setEditingUser} />
+      <UsersTable users={users} isPending={isPending} isError={isError} onEdit={setEditingUser} onDelete={setDeletingUser} />
     </div>
   );
 }
