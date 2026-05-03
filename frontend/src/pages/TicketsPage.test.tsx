@@ -41,7 +41,7 @@ describe('TicketsPage', () => {
   });
 
   it('renders all five column headers', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByRole('columnheader', { name: /subject/i })).toBeInTheDocument()
@@ -61,7 +61,7 @@ describe('TicketsPage', () => {
   });
 
   it('renders ticket subject, sender name, and email', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument()
@@ -71,7 +71,7 @@ describe('TicketsPage', () => {
   });
 
   it('renders the category badge', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByText('technical')).toBeInTheDocument()
@@ -80,7 +80,7 @@ describe('TicketsPage', () => {
   });
 
   it('renders the status badge', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByText('open')).toBeInTheDocument()
@@ -89,7 +89,7 @@ describe('TicketsPage', () => {
   });
 
   it('formats the received date correctly', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByText('Jun 1, 2024')).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('TicketsPage', () => {
   });
 
   it('shows "No tickets yet." when the list is empty', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [] });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() =>
       expect(screen.getByText(/no tickets yet/i)).toBeInTheDocument()
@@ -114,14 +114,14 @@ describe('TicketsPage', () => {
   });
 
   it('calls apiFetch with the correct endpoint', async () => {
-    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [] });
+    vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
     renderWithQuery(<TicketsPage />);
     await waitFor(() => expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets'));
   });
 
   describe('sorting', () => {
     beforeEach(() => {
-      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     });
 
     it('first click on Subject header fetches with sortBy=subject sortDir=asc', async () => {
@@ -189,7 +189,7 @@ describe('TicketsPage', () => {
 
   describe('filtering', () => {
     beforeEach(() => {
-      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     });
 
     it('renders status and category filter dropdowns', async () => {
@@ -256,7 +256,7 @@ describe('TicketsPage', () => {
 
   describe('search', () => {
     beforeEach(() => {
-      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
     });
 
     it('renders the search input', async () => {
@@ -290,6 +290,78 @@ describe('TicketsPage', () => {
       await waitFor(() =>
         expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets'),
         { timeout: 1000 },
+      );
+    });
+  });
+
+  describe('pagination', () => {
+    it('does not show pagination when there are no tickets', async () => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText(/no tickets yet/i)).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
+    });
+
+    it('shows result count and page info when tickets are loaded', async () => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText(/showing 1–10 of 45 tickets/i)).toBeInTheDocument());
+      expect(screen.getByText(/page 1 of 5/i)).toBeInTheDocument();
+    });
+
+    it('Previous button is disabled on page 1', async () => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled());
+    });
+
+    it('Next button is disabled on the last page', async () => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeDisabled());
+    });
+
+    it('clicking Next fetches page 2', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
+
+      await user.click(screen.getByRole('button', { name: /next/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { page: '2' })
+      );
+      expect(screen.getByText(/page 2 of 5/i)).toBeInTheDocument();
+    });
+
+    it('clicking Previous from page 2 goes back to page 1 without page param', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
+
+      await user.click(screen.getByRole('button', { name: /next/i }));
+      await waitFor(() => expect(screen.getByText(/page 2 of 5/i)).toBeInTheDocument());
+
+      await user.click(screen.getByRole('button', { name: /previous/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets')
+      );
+    });
+
+    it('changing a filter resets to page 1', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
+
+      await user.click(screen.getByRole('button', { name: /next/i }));
+      await waitFor(() => expect(screen.getByText(/page 2 of 5/i)).toBeInTheDocument());
+
+      const [statusSelect] = screen.getAllByRole('combobox');
+      await user.selectOptions(statusSelect, 'open');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets', { status: 'open' })
       );
     });
   });

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { type SortingState } from '@tanstack/react-table';
+import { type SortingState, type OnChangeFn } from '@tanstack/react-table';
 import { TicketStatus, TicketCategory } from '@helpdesk/core';
 import { apiFetch } from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { TicketsTable, type Ticket } from '@/components/TicketsTable';
+
+const PAGE_SIZE = 10;
 
 const SORT_KEY_MAP: Record<string, string> = {
   subject: 'subject',
@@ -14,7 +17,13 @@ const SORT_KEY_MAP: Record<string, string> = {
   createdAt: 'createdAt',
 };
 
-function fetchTickets(sorting: SortingState, status: string, category: string, search: string) {
+function fetchTickets(
+  sorting: SortingState,
+  status: string,
+  category: string,
+  search: string,
+  page: number,
+) {
   const params: Record<string, string> = {};
   if (sorting.length > 0) {
     params.sortBy = SORT_KEY_MAP[sorting[0].id] ?? 'createdAt';
@@ -23,10 +32,11 @@ function fetchTickets(sorting: SortingState, status: string, category: string, s
   if (status) params.status = status;
   if (category) params.category = category;
   if (search) params.search = search;
+  if (page > 1) params.page = String(page);
   if (Object.keys(params).length > 0) {
-    return apiFetch<{ tickets: Ticket[] }>('/api/tickets', params).then((d) => d.tickets);
+    return apiFetch<{ tickets: Ticket[]; total: number }>('/api/tickets', params);
   }
-  return apiFetch<{ tickets: Ticket[] }>('/api/tickets').then((d) => d.tickets);
+  return apiFetch<{ tickets: Ticket[]; total: number }>('/api/tickets');
 }
 
 export default function TicketsPage() {
@@ -35,16 +45,31 @@ export default function TicketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | ''>('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(searchInput), 300);
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data: tickets, isPending, isError } = useQuery({
-    queryKey: ['tickets', sorting, statusFilter, categoryFilter, search],
-    queryFn: () => fetchTickets(sorting, statusFilter, categoryFilter, search),
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    setSorting(updater);
+    setPage(1);
+  };
+
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['tickets', sorting, statusFilter, categoryFilter, search, page],
+    queryFn: () => fetchTickets(sorting, statusFilter, categoryFilter, search, page),
   });
+
+  const tickets = data?.tickets;
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   const hasFilters = searchInput !== '' || statusFilter !== '' || categoryFilter !== '';
 
@@ -53,6 +78,7 @@ export default function TicketsPage() {
     setCategoryFilter('');
     setSearchInput('');
     setSearch('');
+    setPage(1);
   }
 
   return (
@@ -68,7 +94,7 @@ export default function TicketsPage() {
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TicketStatus | '')}
+          onChange={(e) => { setStatusFilter(e.target.value as TicketStatus | ''); setPage(1); }}
           className="rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">All statuses</option>
@@ -78,7 +104,7 @@ export default function TicketsPage() {
         </select>
         <select
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as TicketCategory | '')}
+          onChange={(e) => { setCategoryFilter(e.target.value as TicketCategory | ''); setPage(1); }}
           className="rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">All categories</option>
@@ -101,8 +127,32 @@ export default function TicketsPage() {
         isPending={isPending}
         isError={isError}
         sorting={sorting}
-        onSortingChange={setSorting}
+        onSortingChange={handleSortingChange}
       />
+      {!isPending && !isError && total > 0 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <span>Showing {rangeStart}–{rangeEnd} of {total} tickets</span>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+            >
+              ← Previous
+            </Button>
+            <span>Page {page} of {totalPages}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= totalPages}
+            >
+              Next →
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

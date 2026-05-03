@@ -11,12 +11,14 @@ const ticketQuerySchema = z.object({
   status: z.enum(['open', 'pending', 'closed']).optional(),
   category: z.enum(['billing', 'technical', 'account', 'general']).optional(),
   search: z.string().min(1).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 router.get('/', requireAuth, async (req, res) => {
-  const { sortBy, sortDir, status, category, search } = ticketQuerySchema.parse(req.query);
-  const tickets = await listTickets({ sortBy, sortDir, status, category, search });
-  res.json({ tickets });
+  const { sortBy, sortDir, status, category, search, page, pageSize } = ticketQuerySchema.parse(req.query);
+  const { tickets, total } = await listTickets({ sortBy, sortDir, status, category, search, page, pageSize });
+  res.json({ tickets, total });
 });
 
 export default router;

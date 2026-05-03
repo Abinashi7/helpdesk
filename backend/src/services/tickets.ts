@@ -7,23 +7,40 @@ export interface ListTicketsOptions {
   status?: TicketStatus;
   category?: TicketCategory;
   search?: string;
+  page?: number;
+  pageSize?: number;
 }
 
-export async function listTickets({ sortBy = 'createdAt', sortDir = 'desc', status, category, search }: ListTicketsOptions = {}) {
-  return prisma.ticket.findMany({
-    orderBy: { [sortBy]: sortDir },
-    where: {
-      ...(status && { status }),
-      ...(category && { category }),
-      ...(search && {
-        OR: [
-          { subject:   { contains: search, mode: 'insensitive' } },
-          { fromName:  { contains: search, mode: 'insensitive' } },
-          { fromEmail: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-    },
-  });
+export async function listTickets({
+  sortBy = 'createdAt',
+  sortDir = 'desc',
+  status,
+  category,
+  search,
+  page = 1,
+  pageSize = 10,
+}: ListTicketsOptions = {}) {
+  const where = {
+    ...(status && { status }),
+    ...(category && { category }),
+    ...(search && {
+      OR: [
+        { subject:   { contains: search, mode: 'insensitive' as const } },
+        { fromName:  { contains: search, mode: 'insensitive' as const } },
+        { fromEmail: { contains: search, mode: 'insensitive' as const } },
+      ],
+    }),
+  };
+  const [tickets, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      orderBy: { [sortBy]: sortDir },
+      where,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+  return { tickets, total };
 }
 
 interface InboundEmail {
