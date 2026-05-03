@@ -97,6 +97,31 @@ test.describe('Tickets page — table', () => {
 
   // ── Sort order — newest first ──────────────────────────────────────────────
 
+  test('clicking Subject header twice sorts tickets by subject descending', async ({ page, request }) => {
+    const subjectA = `AAA-${uid('subject')}`;
+    const subjectZ = `ZZZ-${uid('subject')}`;
+
+    await createTicket(request, { subject: subjectZ });
+    await createTicket(request, { subject: subjectA });
+
+    await page.goto('/tickets');
+    await expect(page.getByRole('cell', { name: subjectA })).toBeVisible();
+    await expect(page.getByRole('cell', { name: subjectZ })).toBeVisible();
+
+    // Two clicks → desc sort
+    await page.getByRole('columnheader', { name: /subject/i }).click();
+    await page.getByRole('columnheader', { name: /subject/i }).click();
+
+    const zRow = page.getByRole('row').filter({ hasText: subjectZ });
+    const aRow = page.getByRole('row').filter({ hasText: subjectA });
+    const zBox = await zRow.boundingBox();
+    const aBox = await aRow.boundingBox();
+
+    expect(zBox).not.toBeNull();
+    expect(aBox).not.toBeNull();
+    expect(zBox!.y).toBeLessThan(aBox!.y); // Z sorts above A in desc order
+  });
+
   test('tickets are ordered newest first', async ({ page, request }) => {
     const olderSubject = uid('Older');
     const newerSubject = uid('Newer');

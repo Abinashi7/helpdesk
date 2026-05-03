@@ -5,8 +5,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
-export async function apiFetch<T>(path: string): Promise<T> {
-  const res = await api.get<T>(path);
+export async function apiFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
+  const res = await api.get<T>(path, params ? { params } : undefined);
   return res.data;
 }
 

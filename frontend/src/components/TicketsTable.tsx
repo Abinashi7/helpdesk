@@ -1,3 +1,12 @@
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+  type OnChangeFn,
+} from '@tanstack/react-table';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { TicketStatus, TicketCategory } from '@helpdesk/core';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -39,23 +48,72 @@ function CategoryBadge({ category }: { category: TicketCategory | null }) {
   );
 }
 
-const columns = (
-  <tr>
-    <th className="px-4 py-3">Subject</th>
-    <th className="px-4 py-3">From</th>
-    <th className="px-4 py-3">Category</th>
-    <th className="px-4 py-3">Status</th>
-    <th className="px-4 py-3">Received</th>
-  </tr>
-);
+const columns: ColumnDef<Ticket>[] = [
+  {
+    id: 'subject',
+    accessorKey: 'subject',
+    header: 'Subject',
+    enableSorting: true,
+    cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
+  },
+  {
+    id: 'from',
+    accessorFn: (row) => row.fromName,
+    header: 'From',
+    enableSorting: true,
+    cell: ({ row }) => (
+      <div>
+        <div className="text-gray-900">{row.original.fromName}</div>
+        <div className="text-xs text-gray-500">{row.original.fromEmail}</div>
+      </div>
+    ),
+  },
+  {
+    id: 'category',
+    accessorKey: 'category',
+    header: 'Category',
+    enableSorting: true,
+    cell: ({ getValue }) => <CategoryBadge category={getValue<TicketCategory | null>()} />,
+  },
+  {
+    id: 'status',
+    accessorKey: 'status',
+    header: 'Status',
+    enableSorting: true,
+    cell: ({ getValue }) => <StatusBadge status={getValue<TicketStatus>()} />,
+  },
+  {
+    id: 'createdAt',
+    accessorKey: 'createdAt',
+    header: 'Received',
+    enableSorting: true,
+    cell: ({ getValue }) =>
+      new Date(getValue<string>()).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+  },
+];
 
 interface TicketsTableProps {
   tickets: Ticket[] | undefined;
   isPending: boolean;
   isError: boolean;
+  sorting: SortingState;
+  onSortingChange: OnChangeFn<SortingState>;
 }
 
-export function TicketsTable({ tickets, isPending, isError }: TicketsTableProps) {
+export function TicketsTable({ tickets, isPending, isError, sorting, onSortingChange }: TicketsTableProps) {
+  const table = useReactTable({
+    data: tickets ?? [],
+    columns,
+    state: { sorting },
+    onSortingChange,
+    getCoreRowModel: getCoreRowModel(),
+    manualSorting: true,
+  });
+
   if (isError) {
     return <p className="mt-6 text-sm text-destructive">Failed to load tickets.</p>;
   }
@@ -64,7 +122,34 @@ export function TicketsTable({ tickets, isPending, isError }: TicketsTableProps)
     <div className="mt-6 overflow-hidden rounded-xl border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-          {columns}
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => {
+                const sorted = header.column.getIsSorted();
+                return (
+                  <th
+                    key={header.id}
+                    className="px-4 py-3 select-none"
+                    onClick={header.column.getToggleSortingHandler()}
+                    style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getCanSort() && (
+                        sorted === 'asc' ? (
+                          <ChevronUp className="h-3 w-3" aria-hidden />
+                        ) : sorted === 'desc' ? (
+                          <ChevronDown className="h-3 w-3" aria-hidden />
+                        ) : (
+                          <ChevronsUpDown className="h-3 w-3 text-gray-400" aria-hidden />
+                        )
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
+            </tr>
+          ))}
         </thead>
         <tbody className="divide-y">
           {isPending
@@ -77,30 +162,21 @@ export function TicketsTable({ tickets, isPending, isError }: TicketsTableProps)
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                 </tr>
               ))
-            : tickets?.length === 0
+            : table.getRowModel().rows.length === 0
               ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-400">
                     No tickets yet.
                   </td>
                 </tr>
               )
-              : tickets?.map((ticket) => (
-                <tr key={ticket.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3 font-medium">{ticket.subject}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-gray-900">{ticket.fromName}</div>
-                    <div className="text-xs text-gray-500">{ticket.fromEmail}</div>
-                  </td>
-                  <td className="px-4 py-3"><CategoryBadge category={ticket.category} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(ticket.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </td>
+              : table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="hover:bg-muted/30 transition-colors">
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
               ))}
         </tbody>

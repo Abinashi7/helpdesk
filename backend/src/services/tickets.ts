@@ -1,8 +1,13 @@
 import { TicketCategory } from '@helpdesk/core';
 import { prisma } from '../lib/db.js';
 
-export async function listTickets() {
-  return prisma.ticket.findMany({ orderBy: { createdAt: 'desc' } });
+export interface ListTicketsOptions {
+  sortBy?: 'subject' | 'fromName' | 'category' | 'status' | 'createdAt';
+  sortDir?: 'asc' | 'desc';
+}
+
+export async function listTickets({ sortBy = 'createdAt', sortDir = 'desc' }: ListTicketsOptions = {}) {
+  return prisma.ticket.findMany({ orderBy: { [sortBy]: sortDir } });
 }
 
 interface InboundEmail {

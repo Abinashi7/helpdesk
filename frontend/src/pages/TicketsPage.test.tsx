@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TicketStatus, TicketCategory } from '@helpdesk/core';
 import TicketsPage from './TicketsPage';
@@ -116,5 +117,73 @@ describe('TicketsPage', () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [] });
     renderWithQuery(<TicketsPage />);
     await waitFor(() => expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets'));
+  });
+
+  describe('sorting', () => {
+    beforeEach(() => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    });
+
+    it('first click on Subject header fetches with sortBy=subject sortDir=asc', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { sortBy: 'subject', sortDir: 'asc' })
+      );
+    });
+
+    it('second click on Subject header switches to sortDir=desc', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { sortBy: 'subject', sortDir: 'asc' })
+      );
+
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { sortBy: 'subject', sortDir: 'desc' })
+      );
+    });
+
+    it('third click on Subject header clears sort back to default endpoint', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await user.click(screen.getByRole('columnheader', { name: /subject/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets')
+      );
+    });
+
+    it('clicking From header sends sortBy=fromName', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('columnheader', { name: /from/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { sortBy: 'fromName', sortDir: 'asc' })
+      );
+    });
+
+    it('clicking Received header sends sortBy=createdAt', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.click(screen.getByRole('columnheader', { name: /received/i }));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { sortBy: 'createdAt', sortDir: 'asc' })
+      );
+    });
   });
 });
