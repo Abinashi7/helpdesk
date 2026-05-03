@@ -136,29 +136,42 @@ await prisma.\$disconnect();
 - Rate limiting on `/api/auth/*splat` — **production only** (`NODE_ENV === 'production'`), 20 req / 15 min
 - `SESSION_SECRET` removed (was unused; better-auth uses `BETTER_AUTH_SECRET`)
 
-## Component testing (Vitest + React Testing Library)
+## Testing strategy
+
+**Default to component tests. Write e2e tests only when a test genuinely requires the full stack.**
+
+### Component tests (Vitest + React Testing Library) — use these first
 
 Tests live in `frontend/src/` alongside the component they test (e.g. `UsersPage.test.tsx` next to `UsersPage.tsx`).
 
-### Commands (run from `frontend/`)
+Cover with component tests:
+- All rendering states: loading skeleton, success, error, empty
+- Conditional rendering based on props or role (e.g. which nav links appear)
+- UI data formatting (dates, badges, labels)
+- Form validation and submission behaviour
+- Correct API endpoint called (`expect(api.apiFetch).toHaveBeenCalledWith(...)`)
+
+#### Commands (run from `frontend/`)
 ```bash
 bun run test          # single run (CI)
 bun run test:watch    # watch mode — reruns on save
 bun run test:ui       # browser UI at localhost:51204/__vitest__/ — best for writing tests
 ```
 
-### Setup files
+#### Setup files
 - `frontend/src/test/setup.ts` — imports `@testing-library/jest-dom` to extend `expect` with DOM matchers
 - `frontend/src/test/renderWithQuery.tsx` — `renderWithQuery(ui)` helper that wraps any component in a fresh `QueryClientProvider` (retry disabled)
+- For components that use `react-router-dom` hooks (`useNavigate`, `NavLink`): wrap in `<MemoryRouter>` from `react-router-dom`
+- For components that use `authClient.useSession()`: mock `@/lib/auth-client` with `vi.mock`
 
-### Conventions
+#### Conventions
 - Mock `@/lib/api` at the module level with `vi.mock('@/lib/api')`, then set per-test behaviour with `vi.mocked(api.apiFetch).mockResolvedValue(...)` / `.mockRejectedValue(...)`
 - Always use `vi.resetAllMocks()` in `beforeEach` so mock state never leaks between tests
 - Use `await waitFor(...)` for anything that depends on a resolved query; check synchronously for loading/pending state by returning a never-resolving promise: `new Promise(() => {})`
 - Use noon UTC timestamps in mock dates (`T12:00:00Z`) to avoid timezone-boundary failures across environments
 - Import `{ vi, describe, it, expect, beforeEach }` explicitly from `vitest` — `globals: true` is enabled but explicit imports are preferred for clarity
 
-### What to test per component
+#### What to test per component
 | State | How |
 |-------|-----|
 | Loading skeleton | mock `apiFetch` with `new Promise(() => {})`, assert skeleton elements and absence of real data |
@@ -167,18 +180,22 @@ bun run test:ui       # browser UI at localhost:51204/__vitest__/ — best for w
 | Role badges / formatting | assert text content after successful fetch |
 | Correct API call | `expect(api.apiFetch).toHaveBeenCalledWith('/api/...')` |
 
-## E2E testing (Playwright)
-- Tests live in `e2e/tests/` — run with `bun run test:e2e` from root
-- Connect to test DB in IDE: host `localhost`, port `5434`, user/pass/db `helpdesk` / `helpdesk` / `helpdesk_test`
-- Full setup details and test-writing conventions are in the `playwright-e2e-writer` agent (`backend/.claude/agents/playwright-e2e-writer.md`)
+### E2E tests (Playwright) — only when necessary
 
-### When to write e2e tests
-Use the **`playwright-e2e-writer` agent** to write Playwright tests. Invoke it:
-- After any new page or significant UI feature is implemented
-- When asked to write, add, or update e2e tests explicitly
-- After changes to auth flows, route guards, or role-based access
+Reserve e2e tests for behaviour that cannot be verified without the full stack:
+- **Auth guards / routing**: redirects that depend on real session cookies and `ProtectedLayout` / `AdminLayout`
+- **Cross-layer ordering or aggregation**: e.g. DB sort order reflected in the rendered list
+- **Multi-step flows across pages**: e.g. create a resource on one page and verify it appears on another
 
-Do NOT write e2e tests inline — always delegate to the agent so test conventions, auth helpers, and selector strategies stay consistent across the suite.
+Do NOT write e2e tests for things a component test can cover (rendering, badges, form validation, API calls). If you find yourself tempted to write an e2e test for a single component's output, write a component test instead.
+
+#### Running e2e tests
+```bash
+bun run test:e2e                        # all tests (from repo root)
+bun run test:e2e -- --grep "<pattern>"  # targeted run
+```
+- Tests live in `e2e/tests/` — connect to test DB at `localhost:5434` (user/pass/db: `helpdesk`)
+- Full setup details and conventions are in `backend/.claude/agents/playwright-e2e-writer.md`
 
 ## Progress
 - **Phase 1** (Project setup) — done

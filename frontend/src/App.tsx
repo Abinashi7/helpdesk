@@ -3,6 +3,7 @@ import { Role } from '@helpdesk/core';
 import { authClient } from '@/lib/auth-client';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
+import TicketsPage from '@/pages/TicketsPage';
 import UsersPage from '@/pages/UsersPage';
 import Navbar from '@/components/Navbar';
 
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/tickets" element={<TicketsPage />} />
         </Route>
         <Route element={<AdminLayout />}>
           <Route path="/users" element={<UsersPage />} />

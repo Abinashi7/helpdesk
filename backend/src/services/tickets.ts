@@ -1,6 +1,10 @@
 import { TicketCategory } from '@helpdesk/core';
 import { prisma } from '../lib/db.js';
 
+export async function listTickets() {
+  return prisma.ticket.findMany({ orderBy: { createdAt: 'desc' } });
+}
+
 interface InboundEmail {
   subject: string;
   body: string;

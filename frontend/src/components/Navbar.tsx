@@ -18,6 +18,14 @@ export default function Navbar() {
     <nav className="flex h-14 items-center justify-between border-b bg-card px-6">
       <div className="flex items-center gap-6">
         <NavLink to="/" className="font-semibold hover:text-foreground/80">Helpdesk</NavLink>
+        <NavLink
+          to="/tickets"
+          className={({ isActive }) =>
+            `text-sm ${isActive ? 'text-foreground font-medium' : 'text-gray-500 hover:text-foreground'}`
+          }
+        >
+          Tickets
+        </NavLink>
         {isAdmin && (
           <NavLink
             to="/users"
