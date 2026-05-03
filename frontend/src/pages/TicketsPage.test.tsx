@@ -186,4 +186,111 @@ describe('TicketsPage', () => {
       );
     });
   });
+
+  describe('filtering', () => {
+    beforeEach(() => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    });
+
+    it('renders status and category filter dropdowns', async () => {
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+      expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    });
+
+    it('selecting a status filter fetches with status param', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      const [statusSelect] = screen.getAllByRole('combobox');
+      await user.selectOptions(statusSelect, 'open');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { status: 'open' })
+      );
+    });
+
+    it('selecting a category filter fetches with category param', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      const [, categorySelect] = screen.getAllByRole('combobox');
+      await user.selectOptions(categorySelect, 'billing');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { category: 'billing' })
+      );
+    });
+
+    it('combining status and category filters sends both params', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      const [statusSelect, categorySelect] = screen.getAllByRole('combobox');
+      await user.selectOptions(statusSelect, 'pending');
+      await user.selectOptions(categorySelect, 'technical');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { status: 'pending', category: 'technical' })
+      );
+    });
+
+    it('clear all button appears when a filter is active and resets on click', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      expect(screen.queryByText(/clear all/i)).not.toBeInTheDocument();
+
+      const [statusSelect] = screen.getAllByRole('combobox');
+      await user.selectOptions(statusSelect, 'closed');
+      expect(screen.getByText(/clear all/i)).toBeInTheDocument();
+
+      await user.click(screen.getByText(/clear all/i));
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets')
+      );
+      expect(screen.queryByText(/clear all/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('search', () => {
+    beforeEach(() => {
+      vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS });
+    });
+
+    it('renders the search input', async () => {
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+      expect(screen.getByPlaceholderText(/search tickets/i)).toBeInTheDocument();
+    });
+
+    it('typing in the search bar fetches with search param after debounce', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search tickets/i), 'billing');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets', { search: 'billing' }),
+        { timeout: 1000 },
+      );
+    });
+
+    it('clear all button also clears the search', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search tickets/i), 'foo');
+      await waitFor(() => expect(screen.getByText(/clear all/i)).toBeInTheDocument());
+
+      await user.click(screen.getByText(/clear all/i));
+      expect(screen.getByPlaceholderText(/search tickets/i)).toHaveValue('');
+      await waitFor(() =>
+        expect(api.apiFetch).toHaveBeenLastCalledWith('/api/tickets'),
+        { timeout: 1000 },
+      );
+    });
+  });
 });
