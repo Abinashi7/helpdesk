@@ -43,6 +43,10 @@ export async function listTickets({
   return { tickets, total };
 }
 
+export async function getTicket(id: number) {
+  return prisma.ticket.findUnique({ where: { id } });
+}
+
 interface InboundEmail {
   subject: string;
   body: string;

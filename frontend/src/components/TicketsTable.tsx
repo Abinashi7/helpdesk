@@ -6,9 +6,11 @@ import {
   type SortingState,
   type OnChangeFn,
 } from '@tanstack/react-table';
+import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { TicketStatus, TicketCategory } from '@helpdesk/core';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge, CategoryBadge } from '@/components/TicketBadges';
 
 export interface Ticket {
   id: number;
@@ -20,41 +22,21 @@ export interface Ticket {
   createdAt: string;
 }
 
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const styles: Record<TicketStatus, string> = {
-    [TicketStatus.open]: 'bg-blue-100 text-blue-700',
-    [TicketStatus.pending]: 'bg-amber-100 text-amber-700',
-    [TicketStatus.closed]: 'bg-gray-100 text-gray-600',
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function CategoryBadge({ category }: { category: TicketCategory | null }) {
-  if (!category) return <span className="text-gray-400 text-xs">—</span>;
-  const styles: Record<TicketCategory, string> = {
-    [TicketCategory.billing]: 'bg-orange-100 text-orange-700',
-    [TicketCategory.technical]: 'bg-sky-100 text-sky-700',
-    [TicketCategory.account]: 'bg-violet-100 text-violet-700',
-    [TicketCategory.general]: 'bg-gray-100 text-gray-600',
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[category]}`}>
-      {category}
-    </span>
-  );
-}
-
 const columns: ColumnDef<Ticket>[] = [
   {
     id: 'subject',
     accessorKey: 'subject',
     header: 'Subject',
     enableSorting: true,
-    cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
+    cell: ({ getValue, row }) => (
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="font-medium link"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {getValue<string>()}
+      </Link>
+    ),
   },
   {
     id: 'from',

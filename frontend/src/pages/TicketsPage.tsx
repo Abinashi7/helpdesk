@@ -116,7 +116,7 @@ export default function TicketsPage() {
         {hasFilters && (
           <button
             onClick={clearAll}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground link"
           >
             Clear all
           </button>
