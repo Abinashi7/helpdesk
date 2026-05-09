@@ -60,6 +60,14 @@ export async function assignTicket(id: number, assignedToId: string | null) {
   });
 }
 
+export async function updateTicket(id: number, data: { status?: TicketStatus; category?: TicketCategory | null }) {
+  return prisma.ticket.update({
+    where: { id },
+    data,
+    include: { assignedTo: assignedToSelect },
+  });
+}
+
 interface InboundEmail {
   subject: string;
   body: string;

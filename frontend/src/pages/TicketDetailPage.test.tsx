@@ -45,6 +45,11 @@ function mockBothFetches(ticketOverride = {}) {
   });
 }
 
+// The page renders three selects in order: Status, Category, Assign
+function getStatusSelect() { return screen.getAllByRole('combobox')[0] as HTMLSelectElement; }
+function getCategorySelect() { return screen.getAllByRole('combobox')[1] as HTMLSelectElement; }
+function getAssignSelect() { return screen.getAllByRole('combobox')[2] as HTMLSelectElement; }
+
 describe('TicketDetailPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -57,7 +62,7 @@ describe('TicketDetailPage', () => {
     });
     renderPage();
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBe(5);
+    expect(skeletons.length).toBe(6);
     expect(screen.queryByText('Login issue')).not.toBeInTheDocument();
   });
 
@@ -112,6 +117,107 @@ describe('TicketDetailPage', () => {
     });
   });
 
+  describe('status select', () => {
+    it('shows the current ticket status as selected', async () => {
+      mockBothFetches({ status: TicketStatus.pending });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(getStatusSelect().value).toBe('pending');
+    });
+
+    it('calls apiPatch with the new status when changed', async () => {
+      const user = userEvent.setup();
+      mockBothFetches({ status: TicketStatus.open });
+      vi.mocked(api.apiPatch).mockResolvedValue({ ...MOCK_TICKET, status: TicketStatus.pending });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.selectOptions(getStatusSelect(), 'pending');
+      await waitFor(() =>
+        expect(api.apiPatch).toHaveBeenCalledWith('/api/tickets/1', { status: 'pending' })
+      );
+    });
+
+    it('updates to the new status after a successful patch', async () => {
+      const user = userEvent.setup();
+      mockBothFetches({ status: TicketStatus.open });
+      vi.mocked(api.apiPatch).mockResolvedValue({ ...MOCK_TICKET, status: TicketStatus.closed });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.selectOptions(getStatusSelect(), 'closed');
+      await waitFor(() => expect(getStatusSelect().value).toBe('closed'));
+    });
+
+    it('disables both status and category selects while the update mutation is in flight', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      vi.mocked(api.apiPatch).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      expect(getStatusSelect()).not.toBeDisabled();
+      expect(getCategorySelect()).not.toBeDisabled();
+
+      await user.selectOptions(getStatusSelect(), 'pending');
+      expect(getStatusSelect()).toBeDisabled();
+      expect(getCategorySelect()).toBeDisabled();
+    });
+  });
+
+  describe('category select', () => {
+    it('shows the current ticket category as selected', async () => {
+      mockBothFetches({ category: TicketCategory.billing });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(getCategorySelect().value).toBe('billing');
+    });
+
+    it('shows "— None —" selected when category is null', async () => {
+      mockBothFetches({ category: null });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(getCategorySelect().value).toBe('');
+    });
+
+    it('calls apiPatch with the new category when changed', async () => {
+      const user = userEvent.setup();
+      mockBothFetches({ category: TicketCategory.technical });
+      vi.mocked(api.apiPatch).mockResolvedValue({ ...MOCK_TICKET, category: TicketCategory.billing });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.selectOptions(getCategorySelect(), 'billing');
+      await waitFor(() =>
+        expect(api.apiPatch).toHaveBeenCalledWith('/api/tickets/1', { category: 'billing' })
+      );
+    });
+
+    it('calls apiPatch with null when "— None —" is selected', async () => {
+      const user = userEvent.setup();
+      mockBothFetches({ category: TicketCategory.billing });
+      vi.mocked(api.apiPatch).mockResolvedValue({ ...MOCK_TICKET, category: null });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.selectOptions(getCategorySelect(), '');
+      await waitFor(() =>
+        expect(api.apiPatch).toHaveBeenCalledWith('/api/tickets/1', { category: null })
+      );
+    });
+
+    it('updates to the new category after a successful patch', async () => {
+      const user = userEvent.setup();
+      mockBothFetches({ category: TicketCategory.technical });
+      vi.mocked(api.apiPatch).mockResolvedValue({ ...MOCK_TICKET, category: TicketCategory.account });
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.selectOptions(getCategorySelect(), 'account');
+      await waitFor(() => expect(getCategorySelect().value).toBe('account'));
+    });
+  });
+
   describe('assign dropdown', () => {
     it('renders agent names as options', async () => {
       mockBothFetches();
@@ -125,16 +231,14 @@ describe('TicketDetailPage', () => {
       mockBothFetches({ assignedTo: null });
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
-      const select = screen.getByRole('combobox');
-      expect((select as HTMLSelectElement).value).toBe('');
+      expect(getAssignSelect().value).toBe('');
     });
 
     it('shows the assigned agent as selected', async () => {
       mockBothFetches({ assignedTo: { id: 'agent-1', name: 'Alice Agent' } });
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
-      const select = screen.getByRole('combobox');
-      expect((select as HTMLSelectElement).value).toBe('agent-1');
+      expect(getAssignSelect().value).toBe('agent-1');
     });
 
     it('calls apiPatch with the correct agent id when an agent is selected', async () => {
@@ -144,7 +248,7 @@ describe('TicketDetailPage', () => {
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
 
-      await user.selectOptions(screen.getByRole('combobox'), 'agent-1');
+      await user.selectOptions(getAssignSelect(), 'agent-1');
       await waitFor(() =>
         expect(api.apiPatch).toHaveBeenCalledWith('/api/tickets/1/assign', { assignedToId: 'agent-1' })
       );
@@ -157,24 +261,25 @@ describe('TicketDetailPage', () => {
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
 
-      await user.selectOptions(screen.getByRole('combobox'), '');
+      await user.selectOptions(getAssignSelect(), '');
       await waitFor(() =>
         expect(api.apiPatch).toHaveBeenCalledWith('/api/tickets/1/assign', { assignedToId: null })
       );
     });
 
-    it('disables the dropdown while the mutation is in flight', async () => {
+    it('disables only the assign dropdown while the assign mutation is in flight', async () => {
       const user = userEvent.setup();
       mockBothFetches();
       vi.mocked(api.apiPatch).mockReturnValue(new Promise(() => {}));
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
 
-      const select = screen.getByRole('combobox');
-      expect(select).not.toBeDisabled();
-
-      await user.selectOptions(select, 'agent-1');
-      expect(select).toBeDisabled();
+      expect(getAssignSelect()).not.toBeDisabled();
+      await user.selectOptions(getAssignSelect(), 'agent-1');
+      expect(getAssignSelect()).toBeDisabled();
+      // status and category are unaffected by the assign mutation
+      expect(getStatusSelect()).not.toBeDisabled();
+      expect(getCategorySelect()).not.toBeDisabled();
     });
 
     it('updates the dropdown to the new agent after a successful assignment', async () => {
@@ -187,10 +292,8 @@ describe('TicketDetailPage', () => {
       renderPage();
       await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
 
-      await user.selectOptions(screen.getByRole('combobox'), 'agent-2');
-      await waitFor(() =>
-        expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('agent-2')
-      );
+      await user.selectOptions(getAssignSelect(), 'agent-2');
+      await waitFor(() => expect(getAssignSelect().value).toBe('agent-2'));
     });
   });
 });
