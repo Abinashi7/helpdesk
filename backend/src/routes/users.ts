@@ -13,6 +13,11 @@ router.get('/', requireAuth, requireAdmin, async (_req, res) => {
   res.json({ users });
 });
 
+router.get('/agents', requireAuth, async (_req, res) => {
+  const users = await listUsers();
+  res.json({ agents: users.map((u) => ({ id: u.id, name: u.name })) });
+});
+
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const data = validate(createUserSchema, req.body, res);
   if (!data) return;

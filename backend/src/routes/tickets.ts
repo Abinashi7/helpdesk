@@ -1,7 +1,10 @@
 import { Router, type IRouter } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { listTickets, getTicket } from '../services/tickets.js';
+import { assignTicketSchema } from '@helpdesk/core';
+import { validate } from '../lib/validate.js';
+import { listTickets, getTicket, assignTicket } from '../services/tickets.js';
+import { getUserById } from '../services/users.js';
 
 const router: IRouter = Router();
 
@@ -27,6 +30,25 @@ router.get('/:id', requireAuth, async (req, res) => {
   const ticket = await getTicket(id);
   if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
   res.json(ticket);
+});
+
+router.patch('/:id/assign', requireAuth, async (req, res) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
+
+  const data = validate(assignTicketSchema, req.body, res);
+  if (!data) return;
+
+  const ticket = await getTicket(id);
+  if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
+
+  if (data.assignedToId) {
+    const agent = await getUserById(data.assignedToId);
+    if (!agent) { res.status(404).json({ error: 'Agent not found' }); return; }
+  }
+
+  const updated = await assignTicket(id, data.assignedToId);
+  res.json(updated);
 });
 
 export default router;

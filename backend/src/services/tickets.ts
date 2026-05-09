@@ -43,8 +43,21 @@ export async function listTickets({
   return { tickets, total };
 }
 
+const assignedToSelect = { select: { id: true, name: true } } as const;
+
 export async function getTicket(id: number) {
-  return prisma.ticket.findUnique({ where: { id } });
+  return prisma.ticket.findUnique({
+    where: { id },
+    include: { assignedTo: assignedToSelect },
+  });
+}
+
+export async function assignTicket(id: number, assignedToId: string | null) {
+  return prisma.ticket.update({
+    where: { id },
+    data: { assignedToId },
+    include: { assignedTo: assignedToSelect },
+  });
 }
 
 interface InboundEmail {
