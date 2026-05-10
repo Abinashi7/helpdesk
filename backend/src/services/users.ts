@@ -38,9 +38,15 @@ export async function getUserById(id: string) {
 }
 
 export async function deleteUser(id: string) {
-  return prisma.user.update({
-    where: { id },
-    data: { deletedAt: new Date() },
+  return prisma.$transaction(async (tx) => {
+    await tx.ticket.updateMany({
+      where: { assignedToId: id },
+      data: { assignedToId: null },
+    });
+    return tx.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   });
 }
 
