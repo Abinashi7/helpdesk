@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import { type Ticket } from '@helpdesk/core';
 import { apiFetch } from '@/lib/api';
 
 export interface Reply {
   id: number;
   body: string;
+  bodyHtml: string | null;
   senderType: 'agent' | 'customer';
   createdAt: string;
   author: { id: string; name: string };
@@ -57,7 +59,10 @@ export default function ReplyThread({ ticket }: Props) {
                 })}
               </span>
             </div>
-            <p className="text-sm whitespace-pre-wrap">{reply.body}</p>
+            <div
+              className="text-sm whitespace-pre-wrap"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(reply.bodyHtml ?? reply.body) }}
+            />
           </div>
         ))
       )}

@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { type Ticket } from '@helpdesk/core';
 
 interface Props {
@@ -26,9 +27,10 @@ export default function TicketDetail({ ticket }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border bg-muted/30 p-4">
-        <p className="text-sm whitespace-pre-wrap">{ticket.body}</p>
-      </div>
+      <div
+        className="mt-4 rounded-xl border bg-muted/30 p-4 text-sm whitespace-pre-wrap"
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.body) }}
+      />
     </div>
   );
 }

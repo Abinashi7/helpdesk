@@ -109,6 +109,7 @@ model Account {
 model Reply {
   id         Int             @id @default(autoincrement())
   body       String
+  bodyHtml   String?
   senderType ReplySenderType
   ticketId   Int
   ticket     Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)

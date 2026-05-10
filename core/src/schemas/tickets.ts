@@ -15,7 +15,7 @@ export interface Ticket {
 }
 
 export const assignTicketSchema = z.object({
-  assignedToId: z.string().min(1).nullable(),
+  assignedToId: z.string().min(1).max(36).nullable(),
 });
 
 export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
@@ -28,7 +28,8 @@ export const updateTicketSchema = z.object({
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 
 export const createReplySchema = z.object({
-  body:       z.string().trim().min(1),
+  body:       z.string().trim().min(1).max(10_000),
+  bodyHtml:   z.string().max(100_000).optional(),
   senderType: z.nativeEnum(ReplySenderType),
 });
 

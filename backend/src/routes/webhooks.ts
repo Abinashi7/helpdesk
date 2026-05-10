@@ -8,12 +8,12 @@ import { createTicketFromEmail } from '../services/tickets.js';
 const router: IRouter = Router();
 
 const inboundEmailSchema = z.object({
-  subject:   z.string().min(1),
-  body:      z.string().min(1),
-  fromEmail: z.string().email(),
-  fromName:  z.string().min(1),
+  subject:   z.string().min(1).max(500),
+  body:      z.string().min(1).max(100_000),
+  fromEmail: z.string().email().max(255),
+  fromName:  z.string().min(1).max(100),
   category:  z.nativeEnum(TicketCategory).optional(),
-  messageId: z.string().optional(),
+  messageId: z.string().max(255).optional(),
 });
 
 router.post('/email', async (req, res) => {

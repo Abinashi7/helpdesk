@@ -81,6 +81,7 @@ interface InboundEmail {
 const replySelect = {
   id: true,
   body: true,
+  bodyHtml: true,
   senderType: true,
   createdAt: true,
   author: { select: { id: true, name: true } },
@@ -94,9 +95,9 @@ export async function getReplies(ticketId: number) {
   });
 }
 
-export async function createReply(ticketId: number, authorId: string, body: string, senderType: ReplySenderType) {
+export async function createReply(ticketId: number, authorId: string, body: string, senderType: ReplySenderType, bodyHtml?: string) {
   return prisma.reply.create({
-    data: { ticketId, authorId, body, senderType },
+    data: { ticketId, authorId, body, senderType, ...(bodyHtml !== undefined && { bodyHtml }) },
     select: replySelect,
   });
 }

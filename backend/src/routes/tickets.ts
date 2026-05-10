@@ -13,7 +13,7 @@ const ticketQuerySchema = z.object({
   sortDir: z.enum(['asc', 'desc']).default('desc'),
   status: z.enum(['open', 'pending', 'closed']).optional(),
   category: z.enum(['billing', 'technical', 'account', 'general']).optional(),
-  search: z.string().min(1).optional(),
+  search: z.string().min(1).max(255).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
@@ -81,7 +81,7 @@ router.post('/:id/replies', requireAuth, async (req, res) => {
   if (!data) return;
   const ticket = await getTicket(id);
   if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
-  const reply = await createReply(id, res.locals.user.id, data.body, data.senderType);
+  const reply = await createReply(id, res.locals.user.id, data.body, data.senderType, data.bodyHtml);
   res.status(201).json(reply);
 });
 
