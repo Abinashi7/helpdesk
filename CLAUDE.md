@@ -182,12 +182,22 @@ bun run test:ui       # browser UI at localhost:51204/__vitest__/ — best for w
 
 ### E2E tests (Playwright) — only when necessary
 
-Reserve e2e tests for behaviour that cannot be verified without the full stack:
-- **Auth guards / routing**: redirects that depend on real session cookies and `ProtectedLayout` / `AdminLayout`
-- **Cross-layer ordering or aggregation**: e.g. DB sort order reflected in the rendered list
-- **Multi-step flows across pages**: e.g. create a resource on one page and verify it appears on another
+**The bar is high.** Only write an e2e test when a component test genuinely cannot cover the behaviour. Ask: "Could this pass with a mocked API?" If yes, it belongs in a component test.
 
-Do NOT write e2e tests for things a component test can cover (rendering, badges, form validation, API calls). If you find yourself tempted to write an e2e test for a single component's output, write a component test instead.
+Write e2e tests **only** for:
+- **Auth guards / routing**: redirects that depend on real session cookies and `ProtectedLayout` / `AdminLayout`
+- **DB persistence verified by reload**: mutate via the UI, reload the page, confirm the change survived the round-trip — the component test only checks the API call was made, not that the DB persisted it
+- **Cross-layer ordering / aggregation**: DB sort order or insertion order reflected in the rendered list
+- **Multi-step flows across pages**: navigate to page A, perform an action, verify the result on page B
+
+**Never** write e2e tests for:
+- Rendering (headings, labels, data display) — component test
+- Form validation (empty fields, format errors, disabled states) — component test
+- Loading / skeleton / error states — component test
+- Conditional rendering based on role — component test (e.g. `Navbar.test.tsx` already covers which nav links appear)
+- Single-page interactions where every API call is mockable — component test
+
+When in doubt, write the component test. E2e tests are expensive to run and maintain; keep the suite lean by removing any e2e test the moment an equivalent component test exists.
 
 #### Running e2e tests
 ```bash
@@ -209,6 +219,26 @@ bun run test:e2e -- --grep "<pattern>"  # targeted run
 - Components available: `Button`, `Input`, `Label` (in `frontend/src/components/ui/`)
 - Chrome autofill style override in `frontend/src/index.css` (uses hardcoded colors + `!important`)
 - `frontend/src/vite-env.d.ts` provides `import.meta.env` types (standard Vite file, required for `VITE_*` env vars)
+
+## Reusable UI components
+
+### `ErrorMessage` (`frontend/src/components/ui/error-message.tsx`)
+Use for all plain error text. Base style: `text-sm text-destructive`. Pass `className` for spacing or size overrides.
+
+```tsx
+import { ErrorMessage } from '@/components/ui/error-message';
+
+// inline field validation (smaller)
+<ErrorMessage className="text-xs">{errors.name.message}</ErrorMessage>
+
+// page-level load failure (with top margin)
+<ErrorMessage className="mt-6">Failed to load tickets.</ErrorMessage>
+
+// mutation error below a form control
+<ErrorMessage className="mt-1 text-xs">Failed to send reply.</ErrorMessage>
+```
+
+Do **not** use for the banner-style submit errors (the ones with `rounded-lg bg-destructive/10` background) — those are visually distinct and remain as plain `<p>` tags.
 
 ## Using Context7 for documentation
 Always use Context7 MCP to fetch current documentation before writing code that uses any library, framework, or API. Training data may be outdated.

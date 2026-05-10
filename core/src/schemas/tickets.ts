@@ -1,5 +1,18 @@
 import { z } from 'zod';
-import { TicketStatus, TicketCategory } from '../enums.js';
+import { TicketStatus, TicketCategory, ReplySenderType } from '../enums.js';
+
+export interface Ticket {
+  id: number;
+  subject: string;
+  body: string;
+  fromEmail: string;
+  fromName: string;
+  category: TicketCategory | null;
+  status: TicketStatus;
+  assignedTo: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const assignTicketSchema = z.object({
   assignedToId: z.string().min(1).nullable(),
@@ -13,3 +26,10 @@ export const updateTicketSchema = z.object({
 });
 
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
+
+export const createReplySchema = z.object({
+  body:       z.string().trim().min(1),
+  senderType: z.nativeEnum(ReplySenderType),
+});
+
+export type CreateReplyInput = z.infer<typeof createReplySchema>;

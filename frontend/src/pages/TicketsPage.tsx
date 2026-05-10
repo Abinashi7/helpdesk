@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { type SortingState, type OnChangeFn } from '@tanstack/react-table';
-import { TicketStatus, TicketCategory } from '@helpdesk/core';
+import { TicketStatus, TicketCategory, type Ticket } from '@helpdesk/core';
 import { apiFetch } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { TicketsTable, type Ticket } from '@/components/TicketsTable';
+import { TicketsTable } from '@/components/TicketsTable';
 
 const PAGE_SIZE = 10;
 

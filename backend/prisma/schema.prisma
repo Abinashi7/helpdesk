@@ -28,6 +28,11 @@ enum TicketCategory {
   general
 }
 
+enum ReplySenderType {
+  agent
+  customer
+}
+
 model Ticket {
   id        Int          @id @default(autoincrement())
   subject   String
@@ -39,6 +44,7 @@ model Ticket {
   messageId    String?      @unique
   assignedToId String?
   assignedTo   User?        @relation(fields: [assignedToId], references: [id])
+  replies      Reply[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -58,6 +64,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   assignedTickets Ticket[]
+  replies         Reply[]
 
   @@unique([email])
   @@map("user")
@@ -97,6 +104,20 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+model Reply {
+  id         Int             @id @default(autoincrement())
+  body       String
+  senderType ReplySenderType
+  ticketId   Int
+  ticket     Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User            @relation(fields: [authorId], references: [id])
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@map("replies")
 }
 
 model Verification {

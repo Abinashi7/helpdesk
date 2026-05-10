@@ -1,9 +1,9 @@
 import { Router, type IRouter } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { assignTicketSchema, updateTicketSchema } from '@helpdesk/core';
+import { assignTicketSchema, updateTicketSchema, createReplySchema } from '@helpdesk/core';
 import { validate } from '../lib/validate.js';
-import { listTickets, getTicket, assignTicket, updateTicket } from '../services/tickets.js';
+import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply } from '../services/tickets.js';
 import { getUserById } from '../services/users.js';
 
 const router: IRouter = Router();
@@ -63,6 +63,26 @@ router.patch('/:id/assign', requireAuth, async (req, res) => {
 
   const updated = await assignTicket(id, data.assignedToId);
   res.json(updated);
+});
+
+router.get('/:id/replies', requireAuth, async (req, res) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
+  const ticket = await getTicket(id);
+  if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
+  const replies = await getReplies(id);
+  res.json({ replies });
+});
+
+router.post('/:id/replies', requireAuth, async (req, res) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
+  const data = validate(createReplySchema, req.body, res);
+  if (!data) return;
+  const ticket = await getTicket(id);
+  if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
+  const reply = await createReply(id, res.locals.user.id, data.body, data.senderType);
+  res.status(201).json(reply);
 });
 
 export default router;

@@ -7,11 +7,36 @@ import TicketDetailPage from './TicketDetailPage';
 import * as api from '@/lib/api';
 import { renderWithQuery } from '@/test/renderWithQuery';
 
+interface MockReply {
+  id: number;
+  body: string;
+  senderType: 'agent' | 'customer';
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
 vi.mock('@/lib/api');
 
 const MOCK_AGENTS = [
   { id: 'agent-1', name: 'Alice Agent' },
   { id: 'agent-2', name: 'Bob Agent' },
+];
+
+const MOCK_REPLIES: MockReply[] = [
+  {
+    id: 1,
+    body: 'Have you tried resetting your password?',
+    senderType: 'agent',
+    createdAt: '2024-06-01T12:00:00Z',
+    author: { id: 'agent-1', name: 'Alice Agent' },
+  },
+  {
+    id: 2,
+    body: 'Still having the same issue.',
+    senderType: 'customer',
+    createdAt: '2024-06-01T12:00:00Z',
+    author: { id: 'agent-1', name: 'Alice Agent' },
+  },
 ];
 
 const MOCK_TICKET = {
@@ -37,10 +62,11 @@ function renderPage() {
   );
 }
 
-function mockBothFetches(ticketOverride = {}) {
+function mockBothFetches(ticketOverride = {}, replies: MockReply[] = []) {
   vi.mocked(api.apiFetch).mockImplementation((path: string) => {
     if (path === '/api/tickets/1') return Promise.resolve({ ...MOCK_TICKET, ...ticketOverride });
     if (path === '/api/users/agents') return Promise.resolve({ agents: MOCK_AGENTS });
+    if (path === '/api/tickets/1/replies') return Promise.resolve({ replies });
     return Promise.reject(new Error(`Unexpected apiFetch: ${path}`));
   });
 }
@@ -294,6 +320,132 @@ describe('TicketDetailPage', () => {
 
       await user.selectOptions(getAssignSelect(), 'agent-2');
       await waitFor(() => expect(getAssignSelect().value).toBe('agent-2'));
+    });
+  });
+
+  describe('reply thread', () => {
+    it('shows "No replies yet." when the ticket has no replies', async () => {
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(screen.getByText(/no replies yet/i)).toBeInTheDocument();
+    });
+
+    it('renders each reply body and author name', async () => {
+      mockBothFetches({}, MOCK_REPLIES);
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(screen.getByText('Have you tried resetting your password?')).toBeInTheDocument();
+      expect(screen.getByText('Still having the same issue.')).toBeInTheDocument();
+    });
+
+    it('shows "agent" badge for agent replies and "customer" badge for customer replies', async () => {
+      mockBothFetches({}, MOCK_REPLIES);
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      const badges = screen.getAllByText(/^(agent|customer)$/i);
+      expect(badges.some((b) => b.textContent === 'agent')).toBe(true);
+      expect(badges.some((b) => b.textContent === 'customer')).toBe(true);
+    });
+
+    it('fetches replies from the correct endpoint', async () => {
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets/1/replies');
+    });
+  });
+
+  describe('reply form', () => {
+    it('renders a textarea and Send reply button', async () => {
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(screen.getByRole('textbox', { name: /reply body/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /send reply/i })).toBeInTheDocument();
+    });
+
+    it('disables Send reply button when textarea is empty', async () => {
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      expect(screen.getByRole('button', { name: /send reply/i })).toBeDisabled();
+    });
+
+    it('disables Send reply button when textarea contains only whitespace', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), '   ');
+      expect(screen.getByRole('button', { name: /send reply/i })).toBeDisabled();
+    });
+
+    it('enables Send reply button when textarea has content', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'Hello');
+      expect(screen.getByRole('button', { name: /send reply/i })).not.toBeDisabled();
+    });
+
+    it('calls apiPost with the correct endpoint and body on submit', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      vi.mocked(api.apiPost).mockResolvedValue(MOCK_REPLIES[0]);
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'Test reply');
+      await user.click(screen.getByRole('button', { name: /send reply/i }));
+      await waitFor(() =>
+        expect(api.apiPost).toHaveBeenCalledWith('/api/tickets/1/replies', {
+          body: 'Test reply',
+          senderType: 'agent',
+        })
+      );
+    });
+
+    it('clears the textarea after a successful submission', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      vi.mocked(api.apiPost).mockResolvedValue(MOCK_REPLIES[0]);
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      const textarea = screen.getByRole('textbox', { name: /reply body/i });
+      await user.type(textarea, 'Test reply');
+      await user.click(screen.getByRole('button', { name: /send reply/i }));
+      await waitFor(() => expect(textarea).toHaveValue(''));
+    });
+
+    it('disables textarea and button while mutation is in flight', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      vi.mocked(api.apiPost).mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      const textarea = screen.getByRole('textbox', { name: /reply body/i });
+      await user.type(textarea, 'Test reply');
+      await user.click(screen.getByRole('button', { name: /send reply/i }));
+      expect(textarea).toBeDisabled();
+      expect(screen.getByRole('button', { name: /sending/i })).toBeDisabled();
+    });
+
+    it('shows an error message when the POST fails', async () => {
+      const user = userEvent.setup();
+      mockBothFetches();
+      vi.mocked(api.apiPost).mockRejectedValue(new Error('Server error'));
+      renderPage();
+      await waitFor(() => expect(screen.getByText('Login issue')).toBeInTheDocument());
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'Test reply');
+      await user.click(screen.getByRole('button', { name: /send reply/i }));
+      await waitFor(() =>
+        expect(screen.getByText(/failed to send reply/i)).toBeInTheDocument()
+      );
     });
   });
 });

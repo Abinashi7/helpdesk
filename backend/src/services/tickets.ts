@@ -1,4 +1,4 @@
-import { TicketCategory, TicketStatus } from '@helpdesk/core';
+import { TicketCategory, TicketStatus, ReplySenderType } from '@helpdesk/core';
 import { prisma } from '../lib/db.js';
 
 export interface ListTicketsOptions {
@@ -37,6 +37,7 @@ export async function listTickets({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
+      include: { assignedTo: assignedToSelect },
     }),
     prisma.ticket.count({ where }),
   ]);
@@ -75,6 +76,29 @@ interface InboundEmail {
   fromName: string;
   category?: TicketCategory;
   messageId?: string;
+}
+
+const replySelect = {
+  id: true,
+  body: true,
+  senderType: true,
+  createdAt: true,
+  author: { select: { id: true, name: true } },
+} as const;
+
+export async function getReplies(ticketId: number) {
+  return prisma.reply.findMany({
+    where: { ticketId },
+    orderBy: { createdAt: 'asc' },
+    select: replySelect,
+  });
+}
+
+export async function createReply(ticketId: number, authorId: string, body: string, senderType: ReplySenderType) {
+  return prisma.reply.create({
+    data: { ticketId, authorId, body, senderType },
+    select: replySelect,
+  });
 }
 
 export async function createTicketFromEmail(data: InboundEmail) {

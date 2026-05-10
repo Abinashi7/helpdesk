@@ -7,6 +7,7 @@ import { apiPost } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ErrorMessage } from '@/components/ui/error-message';
 import { type User } from '@/components/UsersTable';
 
 export function CreateUserModal({ onClose }: { onClose: () => void }) {
@@ -59,7 +60,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
               aria-invalid={!!errors.name}
               {...register('name')}
             />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            {errors.name && <ErrorMessage className="text-xs">{errors.name.message}</ErrorMessage>}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cu-email">Email</Label>
@@ -71,7 +72,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
               aria-invalid={!!errors.email}
               {...register('email')}
             />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            {errors.email && <ErrorMessage className="text-xs">{errors.email.message}</ErrorMessage>}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cu-password">Password</Label>
@@ -84,7 +85,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
               {...register('password')}
             />
             {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
+              <ErrorMessage className="text-xs">{errors.password.message}</ErrorMessage>
             )}
           </div>
           {errors.root && (

@@ -8,19 +8,12 @@ import {
 } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { TicketStatus, TicketCategory } from '@helpdesk/core';
+import { TicketStatus, TicketCategory, type Ticket } from '@helpdesk/core';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge, CategoryBadge } from '@/components/TicketBadges';
+import { ErrorMessage } from '@/components/ui/error-message';
 
-export interface Ticket {
-  id: number;
-  subject: string;
-  fromEmail: string;
-  fromName: string;
-  category: TicketCategory | null;
-  status: TicketStatus;
-  createdAt: string;
-}
+export type { Ticket };
 
 const columns: ColumnDef<Ticket>[] = [
   {
@@ -97,7 +90,7 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
   });
 
   if (isError) {
-    return <p className="mt-6 text-sm text-destructive">Failed to load tickets.</p>;
+    return <ErrorMessage className="mt-6">Failed to load tickets.</ErrorMessage>;
   }
 
   return (

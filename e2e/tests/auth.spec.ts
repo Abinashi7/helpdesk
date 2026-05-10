@@ -1,20 +1,12 @@
 /**
  * auth.spec.ts — End-to-end tests for the helpdesk authentication system.
  *
- * Coverage:
- *  - Login page: happy paths (admin, agent), wrong password, unknown email,
- *    empty-field validation, invalid email format
- *  - Protected routes: unauthenticated redirect, admin-only access, agent
- *    redirect from admin route
+ * Coverage (full-stack only — rendering, form validation, and role-based
+ * rendering are covered by component tests):
+ *  - Login page: happy paths (admin, agent), wrong password, unknown email
+ *  - Protected routes: unauthenticated redirect, admin-only access, agent redirect
  *  - Session persistence: page refresh keeps the user logged in
- *  - Logout: clears session and redirects to /login
- *
- * Authentication strategy:
- *  - UI-under-test scenarios (login form errors, submit behaviour) drive the
- *    browser through the actual form.
- *  - Tests that only need an authenticated starting point restore pre-built
- *    storageState (produced by auth.setup.ts) to skip the login UI entirely,
- *    keeping the suite fast and each test focused on one concern.
+ *  - Logout: clears session server-side and redirects to /login
  */
 
 import { test, expect } from '@playwright/test';
@@ -25,15 +17,6 @@ import { loginViaUI, loginSuccessfully, ADMIN_AUTH_FILE, AGENT_AUTH_FILE } from 
 test.describe('Login page', () => {
   // All tests in this group start unauthenticated (no storageState).
   test.use({ storageState: { cookies: [], origins: [] } });
-
-  test('renders the Sign in heading and form fields', async ({ page }) => {
-    await page.goto('/login');
-
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
-    await expect(page.getByLabel('Email')).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-  });
 
   test('admin logs in successfully and is redirected to /', async ({ page }) => {
     await loginSuccessfully(page, {
@@ -86,57 +69,6 @@ test.describe('Login page', () => {
     await expect(errorParagraph).toBeVisible();
   });
 
-  test('submitting with empty fields shows required validation errors', async ({ page }) => {
-    await page.goto('/login');
-
-    // Submit without filling anything — react-hook-form + zod intercepts this
-    // before any network request is made.
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    // Zod schema: email min(1, 'Email is required'), password min(1, 'Password is required')
-    await expect(page.getByText('Email is required')).toBeVisible();
-    await expect(page.getByText('Password is required')).toBeVisible();
-
-    // Page must not navigate away
-    await expect(page).toHaveURL('/login');
-  });
-
-  test('invalid email format shows a format validation error', async ({ page }) => {
-    await page.goto('/login');
-
-    await page.getByLabel('Email').fill('not-an-email');
-    await page.getByLabel('Password').fill('somepassword');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    // Zod schema: email('Invalid email address')
-    await expect(page.getByText('Invalid email address')).toBeVisible();
-    await expect(page).toHaveURL('/login');
-  });
-
-  test('submit button shows loading state while request is in flight', async ({ page }) => {
-    await page.goto('/login');
-
-    // Slow down the sign-in API response so we can observe the transient state.
-    await page.route('**/api/auth/sign-in/email', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      await route.continue();
-    });
-
-    await page.getByLabel('Email').fill('admin@example.com');
-    await page.getByLabel('Password').fill('password123');
-
-    // Use a stable locator that doesn't depend on button text — after clicking,
-    // the text changes to "Signing in…" which no longer matches /sign in/i.
-    const submitButton = page.locator('button[type="submit"]');
-    await submitButton.click();
-
-    // While the request is pending the button text changes and it is disabled
-    await expect(submitButton).toBeDisabled();
-    await expect(submitButton).toHaveText('Signing in…');
-
-    // Wait for the navigation to complete before Playwright tears down the page
-    await page.waitForURL('/');
-  });
 });
 
 // ── 2. Protected routes ───────────────────────────────────────────────────────
@@ -173,12 +105,6 @@ test.describe('Protected routes — authenticated admin', () => {
     await expect(page).toHaveURL('/users');
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
   });
-
-  test('admin navbar shows the Users link', async ({ page }) => {
-    await page.goto('/');
-    // The Users NavLink is only rendered when isAdmin is true
-    await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
-  });
 });
 
 test.describe('Protected routes — authenticated agent', () => {
@@ -195,12 +121,6 @@ test.describe('Protected routes — authenticated agent', () => {
     await page.goto('/users');
     await page.waitForURL('/');
     await expect(page).toHaveURL('/');
-  });
-
-  test('agent navbar does not show the Users link', async ({ page }) => {
-    await page.goto('/');
-    // The Users NavLink must not exist for non-admins
-    await expect(page.getByRole('link', { name: 'Users' })).not.toBeVisible();
   });
 });
 

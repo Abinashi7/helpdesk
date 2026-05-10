@@ -1,10 +1,19 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { TicketStatus, TicketCategory } from '@helpdesk/core';
 import TicketsPage from './TicketsPage';
 import * as api from '@/lib/api';
 import { renderWithQuery } from '@/test/renderWithQuery';
+
+function renderPage() {
+  return renderWithQuery(
+    <MemoryRouter>
+      <TicketsPage />
+    </MemoryRouter>
+  );
+}
 
 vi.mock('@/lib/api');
 
@@ -36,13 +45,13 @@ describe('TicketsPage', () => {
 
   it('renders the page heading', () => {
     vi.mocked(api.apiFetch).mockReturnValue(new Promise(() => {}));
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     expect(screen.getByRole('heading', { name: /tickets/i })).toBeInTheDocument();
   });
 
   it('renders all five column headers', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByRole('columnheader', { name: /subject/i })).toBeInTheDocument()
     );
@@ -54,7 +63,7 @@ describe('TicketsPage', () => {
 
   it('shows skeleton rows while loading', () => {
     vi.mocked(api.apiFetch).mockReturnValue(new Promise(() => {}));
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     expect(screen.queryByText('Cannot log in to my account')).not.toBeInTheDocument();
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]');
     expect(skeletons.length).toBe(25); // 5 rows × 5 columns
@@ -62,7 +71,7 @@ describe('TicketsPage', () => {
 
   it('renders ticket subject, sender name, and email', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument()
     );
@@ -72,7 +81,7 @@ describe('TicketsPage', () => {
 
   it('renders the category badge', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText('technical')).toBeInTheDocument()
     );
@@ -81,7 +90,7 @@ describe('TicketsPage', () => {
 
   it('renders the status badge', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText('open')).toBeInTheDocument()
     );
@@ -90,7 +99,7 @@ describe('TicketsPage', () => {
 
   it('formats the received date correctly', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText('Jun 1, 2024')).toBeInTheDocument()
     );
@@ -99,7 +108,7 @@ describe('TicketsPage', () => {
 
   it('shows "No tickets yet." when the list is empty', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/no tickets yet/i)).toBeInTheDocument()
     );
@@ -107,7 +116,7 @@ describe('TicketsPage', () => {
 
   it('shows an error message when the fetch fails', async () => {
     vi.mocked(api.apiFetch).mockRejectedValue(new Error('Network error'));
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/failed to load tickets/i)).toBeInTheDocument()
     );
@@ -115,7 +124,7 @@ describe('TicketsPage', () => {
 
   it('calls apiFetch with the correct endpoint', async () => {
     vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
-    renderWithQuery(<TicketsPage />);
+    renderPage();
     await waitFor(() => expect(api.apiFetch).toHaveBeenCalledWith('/api/tickets'));
   });
 
@@ -126,7 +135,7 @@ describe('TicketsPage', () => {
 
     it('first click on Subject header fetches with sortBy=subject sortDir=asc', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.click(screen.getByRole('columnheader', { name: /subject/i }));
@@ -137,7 +146,7 @@ describe('TicketsPage', () => {
 
     it('second click on Subject header switches to sortDir=desc', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.click(screen.getByRole('columnheader', { name: /subject/i }));
@@ -153,7 +162,7 @@ describe('TicketsPage', () => {
 
     it('third click on Subject header clears sort back to default endpoint', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.click(screen.getByRole('columnheader', { name: /subject/i }));
@@ -166,7 +175,7 @@ describe('TicketsPage', () => {
 
     it('clicking From header sends sortBy=fromName', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.click(screen.getByRole('columnheader', { name: /from/i }));
@@ -177,7 +186,7 @@ describe('TicketsPage', () => {
 
     it('clicking Received header sends sortBy=createdAt', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.click(screen.getByRole('columnheader', { name: /received/i }));
@@ -193,14 +202,14 @@ describe('TicketsPage', () => {
     });
 
     it('renders status and category filter dropdowns', async () => {
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
       expect(screen.getAllByRole('combobox')).toHaveLength(2);
     });
 
     it('selecting a status filter fetches with status param', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       const [statusSelect] = screen.getAllByRole('combobox');
@@ -212,7 +221,7 @@ describe('TicketsPage', () => {
 
     it('selecting a category filter fetches with category param', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       const [, categorySelect] = screen.getAllByRole('combobox');
@@ -224,7 +233,7 @@ describe('TicketsPage', () => {
 
     it('combining status and category filters sends both params', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       const [statusSelect, categorySelect] = screen.getAllByRole('combobox');
@@ -237,7 +246,7 @@ describe('TicketsPage', () => {
 
     it('clear all button appears when a filter is active and resets on click', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       expect(screen.queryByText(/clear all/i)).not.toBeInTheDocument();
@@ -260,14 +269,14 @@ describe('TicketsPage', () => {
     });
 
     it('renders the search input', async () => {
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
       expect(screen.getByPlaceholderText(/search tickets/i)).toBeInTheDocument();
     });
 
     it('typing in the search bar fetches with search param after debounce', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.type(screen.getByPlaceholderText(/search tickets/i), 'billing');
@@ -279,7 +288,7 @@ describe('TicketsPage', () => {
 
     it('clear all button also clears the search', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText('Cannot log in to my account')).toBeInTheDocument());
 
       await user.type(screen.getByPlaceholderText(/search tickets/i), 'foo');
@@ -297,34 +306,34 @@ describe('TicketsPage', () => {
   describe('pagination', () => {
     it('does not show pagination when there are no tickets', async () => {
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: [], total: 0 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText(/no tickets yet/i)).toBeInTheDocument());
       expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
     });
 
     it('shows result count and page info when tickets are loaded', async () => {
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByText(/showing 1–10 of 45 tickets/i)).toBeInTheDocument());
       expect(screen.getByText(/page 1 of 5/i)).toBeInTheDocument();
     });
 
     it('Previous button is disabled on page 1', async () => {
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled());
     });
 
     it('Next button is disabled on the last page', async () => {
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 2 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeDisabled());
     });
 
     it('clicking Next fetches page 2', async () => {
       const user = userEvent.setup();
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
 
       await user.click(screen.getByRole('button', { name: /next/i }));
@@ -337,7 +346,7 @@ describe('TicketsPage', () => {
     it('clicking Previous from page 2 goes back to page 1 without page param', async () => {
       const user = userEvent.setup();
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
 
       await user.click(screen.getByRole('button', { name: /next/i }));
@@ -352,7 +361,7 @@ describe('TicketsPage', () => {
     it('changing a filter resets to page 1', async () => {
       const user = userEvent.setup();
       vi.mocked(api.apiFetch).mockResolvedValue({ tickets: MOCK_TICKETS, total: 45 });
-      renderWithQuery(<TicketsPage />);
+      renderPage();
       await waitFor(() => expect(screen.getByRole('button', { name: /next/i })).toBeEnabled());
 
       await user.click(screen.getByRole('button', { name: /next/i }));

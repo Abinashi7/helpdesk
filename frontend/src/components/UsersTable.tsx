@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Role } from '@helpdesk/core';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { ErrorMessage } from '@/components/ui/error-message';
 
 export interface User {
   id: string;
@@ -43,7 +44,7 @@ interface UsersTableProps {
 
 export function UsersTable({ users, isPending, isError, onEdit, onDelete }: UsersTableProps) {
   if (isError) {
-    return <p className="mt-6 text-sm text-destructive">Failed to load users.</p>;
+    return <ErrorMessage className="mt-6">Failed to load users.</ErrorMessage>;
   }
 
   return (

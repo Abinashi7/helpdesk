@@ -98,22 +98,41 @@ test.describe('Tickets page — table', () => {
   // ── Sort order — newest first ──────────────────────────────────────────────
 
   test('clicking Subject header twice sorts tickets by subject descending', async ({ page, request }) => {
-    const subjectA = `AAA-${uid('subject')}`;
-    const subjectZ = `ZZZ-${uid('subject')}`;
+    // Use a shared prefix so we can filter to exactly these two tickets via
+    // the search box — this prevents the AAA ticket from being pushed off
+    // page 1 by unrelated tickets accumulated from other test runs.
+    const prefix = uid('SORTTEST');
+    const subjectA = `${prefix}-AAA`;
+    const subjectZ = `${prefix}-ZZZ`;
 
     await createTicket(request, { subject: subjectZ });
     await createTicket(request, { subject: subjectA });
 
     await page.goto('/tickets');
+
+    // Each network call triggers a re-fetch; always wait for the response
+    // before the next interaction to avoid racing against in-flight requests.
+    const waitForTickets = () =>
+      page.waitForResponse((r) => r.url().includes('/api/tickets') && r.status() === 200);
+
+    // Filter to just our two tickets
+    await page.getByPlaceholder(/search tickets/i).fill(prefix);
+    await waitForTickets(); // debounced search resolves
+
     await expect(page.getByRole('cell', { name: subjectA })).toBeVisible();
     await expect(page.getByRole('cell', { name: subjectZ })).toBeVisible();
 
-    // Two clicks → desc sort
     await page.getByRole('columnheader', { name: /subject/i }).click();
+    await waitForTickets(); // asc sort applied
+
     await page.getByRole('columnheader', { name: /subject/i }).click();
+    await waitForTickets(); // desc sort applied
 
     const zRow = page.getByRole('row').filter({ hasText: subjectZ });
     const aRow = page.getByRole('row').filter({ hasText: subjectA });
+    await expect(zRow).toBeVisible();
+    await expect(aRow).toBeVisible();
+
     const zBox = await zRow.boundingBox();
     const aBox = await aRow.boundingBox();
 
