@@ -147,4 +147,111 @@ describe('ReplyCompose', () => {
     await user.click(screen.getByRole('button', { name: /send reply/i }));
     expect(api.apiPost).not.toHaveBeenCalled();
   });
+
+  describe('Polish button', () => {
+    it('renders the Polish button', () => {
+      renderCompose();
+      expect(screen.getByRole('button', { name: /^polish$/i })).toBeInTheDocument();
+    });
+
+    it('is disabled when the textarea is empty', () => {
+      renderCompose();
+      expect(screen.getByRole('button', { name: /^polish$/i })).toBeDisabled();
+    });
+
+    it('is disabled when the textarea contains only whitespace', async () => {
+      const user = userEvent.setup();
+      renderCompose();
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), '   ');
+      expect(screen.getByRole('button', { name: /^polish$/i })).toBeDisabled();
+    });
+
+    it('calls apiPost with the correct endpoint and trimmed body', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockResolvedValue({ polished: 'Polished.' });
+      renderCompose(99);
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), '  hey fixed it  ');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+
+      await waitFor(() =>
+        expect(api.apiPost).toHaveBeenCalledWith('/api/tickets/99/replies/polish', {
+          body: 'hey fixed it',
+        })
+      );
+    });
+
+    it('replaces the textarea content with the polished text on success', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockResolvedValue({ polished: 'Polished text.' });
+      renderCompose();
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'hey fixed it');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /reply body/i })).toHaveValue('Polished text.')
+      );
+    });
+
+    it('shows "Polishing…" and disables both buttons while pending', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockReturnValue(new Promise(() => {}));
+      renderCompose();
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'hey fixed it');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /polishing/i })).toBeDisabled()
+      );
+      expect(screen.getByRole('button', { name: /send reply/i })).toBeDisabled();
+    });
+
+    it('disables the textarea while polishing', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockReturnValue(new Promise(() => {}));
+      renderCompose();
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'hey fixed it');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: /reply body/i })).toBeDisabled()
+      );
+    });
+
+    it('shows an error message when the request fails', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockRejectedValue(new Error('Network error'));
+      renderCompose();
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'hey fixed it');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/failed to polish reply/i)).toBeInTheDocument()
+      );
+    });
+
+    it('clears the polish error when the textarea is edited', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.apiPost).mockRejectedValue(new Error('Network error'));
+      renderCompose();
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), 'hey fixed it');
+      await user.click(screen.getByRole('button', { name: /^polish$/i }));
+      await waitFor(() =>
+        expect(screen.getByText(/failed to polish reply/i)).toBeInTheDocument()
+      );
+
+      await user.type(screen.getByRole('textbox', { name: /reply body/i }), ' more');
+      expect(screen.queryByText(/failed to polish reply/i)).not.toBeInTheDocument();
+    });
+
+    it('does not show a polish error before any attempt', () => {
+      renderCompose();
+      expect(screen.queryByText(/failed to polish reply/i)).not.toBeInTheDocument();
+    });
+  });
 });
