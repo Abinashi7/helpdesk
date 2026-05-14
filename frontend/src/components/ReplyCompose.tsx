@@ -13,8 +13,9 @@ interface Props {
 export default function ReplyCompose({ ticket }: Props) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
+  const [polishError, setPolishError] = useState<string | null>(null);
 
-  const mutation = useMutation({
+  const sendMutation = useMutation({
     mutationFn: (text: string) =>
       apiPost<Reply>(`/api/tickets/${ticket.id}/replies`, { body: text, senderType: ReplySenderType.agent }),
     onSuccess: () => {
@@ -22,6 +23,18 @@ export default function ReplyCompose({ ticket }: Props) {
       setBody('');
     },
   });
+
+  const polishMutation = useMutation({
+    mutationFn: (text: string) =>
+      apiPost<{ polished: string }>(`/api/tickets/${ticket.id}/replies/polish`, { body: text }),
+    onSuccess: (data) => {
+      setBody(data.polished);
+      setPolishError(null);
+    },
+    onError: () => setPolishError('Failed to polish reply.'),
+  });
+
+  const busy = sendMutation.isPending || polishMutation.isPending;
 
   return (
     <div className="mt-4">
@@ -31,22 +44,36 @@ export default function ReplyCompose({ ticket }: Props) {
         rows={4}
         placeholder="Write a reply…"
         value={body}
-        onChange={(e) => setBody(e.target.value)}
-        disabled={mutation.isPending}
+        onChange={(e) => { setBody(e.target.value); setPolishError(null); }}
+        disabled={busy}
       />
-      {mutation.isError && (
+      {sendMutation.isError && (
         <ErrorMessage className="mt-1 text-xs">Failed to send reply.</ErrorMessage>
       )}
-      <div className="mt-2 flex justify-end">
+      {polishError && (
+        <ErrorMessage className="mt-1 text-xs">{polishError}</ErrorMessage>
+      )}
+      <div className="mt-2 flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            const trimmed = body.trim();
+            if (trimmed) polishMutation.mutate(trimmed);
+          }}
+          disabled={busy || !body.trim()}
+        >
+          {polishMutation.isPending ? 'Polishing…' : 'Polish'}
+        </Button>
         <Button
           type="button"
           onClick={() => {
             const trimmed = body.trim();
-            if (trimmed) mutation.mutate(trimmed);
+            if (trimmed) sendMutation.mutate(trimmed);
           }}
-          disabled={mutation.isPending || !body.trim()}
+          disabled={busy || !body.trim()}
         >
-          {mutation.isPending ? 'Sending…' : 'Send reply'}
+          {sendMutation.isPending ? 'Sending…' : 'Send reply'}
         </Button>
       </div>
     </div>

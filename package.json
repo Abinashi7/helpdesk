@@ -8,5 +8,8 @@
     "build": "bun run --filter '*' build",
     "lint": "bun run --filter '*' lint",
     "test:e2e": "bun run --filter '@helpdesk/e2e' test"
+  },
+  "dependencies": {
+    "zod": "^4"
   }
 }

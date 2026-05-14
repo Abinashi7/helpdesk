@@ -34,3 +34,9 @@ export const createReplySchema = z.object({
 });
 
 export type CreateReplyInput = z.infer<typeof createReplySchema>;
+
+export const polishReplySchema = z.object({
+  body: z.string().min(1).max(10_000),
+});
+
+export type PolishReplyInput = z.infer<typeof polishReplySchema>;

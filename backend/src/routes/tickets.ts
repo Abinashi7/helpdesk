@@ -1,7 +1,9 @@
 import { Router, type IRouter } from 'express';
 import { z } from 'zod';
+import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { assignTicketSchema, updateTicketSchema, createReplySchema } from '@helpdesk/core';
+import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema } from '@helpdesk/core';
 import { validate } from '../lib/validate.js';
 import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply } from '../services/tickets.js';
 import { getUserById } from '../services/users.js';
@@ -83,6 +85,41 @@ router.post('/:id/replies', requireAuth, async (req, res) => {
   if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
   const reply = await createReply(id, res.locals.user.id, data.body, data.senderType, data.bodyHtml);
   res.status(201).json(reply);
+});
+
+router.post('/:id/replies/polish', requireAuth, async (req, res) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
+  const ticket = await getTicket(id);
+  if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
+  const data = validate(polishReplySchema, req.body, res);
+  if (!data) return;
+
+  const agentName = res.locals.user.name;
+  const domain = res.locals.user.email.split('@')[1];
+  const customerFirstName = ticket.fromName.split(' ')[0];
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system: `You are a professional customer support agent editor. Rewrite the draft reply below into a polished, professional support response.
+
+Rules:
+- Use a warm but professional tone — courteous, clear, and confident
+- Replace casual or informal phrasing with professional language (e.g. "hey fixed it try now" → "I'm pleased to let you know that the issue has been resolved. Please give it another try and let us know if you need any further assistance.")
+- Write in complete, well-structured sentences
+- Begin the reply with exactly: "Hi ${customerFirstName}," on its own line
+- Keep the same meaning and intent as the draft
+- Do not add filler phrases like "I hope this email finds you well"
+- End the reply with this exact signature on a new line:
+
+${agentName}
+${domain}
+
+- Return only the rewritten reply text with the greeting and signature, no preamble or explanation`,
+    prompt: data.body,
+  });
+
+  res.json({ polished: text });
 });
 
 export default router;
