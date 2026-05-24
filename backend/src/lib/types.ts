@@ -1,1 +1,1 @@
-export { Role } from '../../generated/prisma/client.js';
+export { Role, type Ticket } from '../../generated/prisma/client.js';
