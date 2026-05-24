@@ -9,6 +9,7 @@ import TicketDetail from '@/components/TicketDetail';
 import TicketSidebar from '@/components/TicketSidebar';
 import ReplyThread from '@/components/ReplyThread';
 import ReplyCompose from '@/components/ReplyCompose';
+import TicketSummary from '@/components/TicketSummary';
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function TicketDetailPage() {
         <div className="mt-6 grid grid-cols-[1fr_260px] gap-8 items-start">
           <div>
             <TicketDetail ticket={ticket} />
+            <TicketSummary ticket={ticket} />
             <ReplyThread ticket={ticket} />
             <ReplyCompose ticket={ticket} />
           </div>

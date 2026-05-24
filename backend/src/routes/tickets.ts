@@ -87,6 +87,39 @@ router.post('/:id/replies', requireAuth, async (req, res) => {
   res.status(201).json(reply);
 });
 
+router.post('/:id/summarize', requireAuth, async (req, res) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
+
+  const ticket = await getTicket(id);
+  if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
+
+  const replies = await getReplies(id);
+
+  const parts = [
+    `Subject: ${ticket.subject}`,
+    `From: ${ticket.fromName} <${ticket.fromEmail}>`,
+    `\nOriginal message:\n${ticket.body}`,
+  ];
+
+  if (replies.length > 0) {
+    parts.push('\nConversation replies:');
+    for (const reply of replies) {
+      parts.push(`\n[${reply.senderType === 'agent' ? 'Agent' : 'Customer'}] ${reply.author.name}:\n${reply.body}`);
+    }
+  }
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system: `You are a helpful assistant that summarizes customer support tickets concisely.
+Summarize in 2–4 sentences covering: the customer's issue or request, any key context, and the current state of the conversation (if replies exist).
+Do not include greetings, preamble, or commentary — just the summary.`,
+    prompt: parts.join('\n'),
+  });
+
+  res.json({ summary: text });
+});
+
 router.post('/:id/replies/polish', requireAuth, async (req, res) => {
   const id = parseInt(req.params['id'] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
