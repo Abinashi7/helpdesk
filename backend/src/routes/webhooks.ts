@@ -4,7 +4,7 @@ import { TicketCategory } from '@helpdesk/core';
 import { env } from '../config/env.js';
 import { validate } from '../lib/validate.js';
 import { createTicketFromEmail } from '../services/tickets.js';
-import { classifyQueue } from '../lib/queue.js';
+import { boss } from '../lib/boss.js';
 
 const router: IRouter = Router();
 
@@ -30,7 +30,7 @@ router.post('/email', async (req, res) => {
   const ticket = await createTicketFromEmail(data);
 
   if (!ticket.category) {
-    classifyQueue.add('classify', { ticket });
+    boss.send('classify', { ticket });
   }
 
   res.json({ ok: true, ticketId: ticket.id });
