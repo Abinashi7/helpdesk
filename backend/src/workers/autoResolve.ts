@@ -42,10 +42,10 @@ KNOWLEDGE BASE:
 ${knowledgeBase}`;
 
 export async function registerAutoResolveWorker() {
-  const { id: systemAuthorId } = await prisma.user.findUniqueOrThrow({
-    where: { email: 'admin@example.com' },
-    select: { id: true },
-  });
+  const [{ id: systemAuthorId }, { id: aiAgentId }] = await Promise.all([
+    prisma.user.findUniqueOrThrow({ where: { email: 'admin@example.com' }, select: { id: true } }),
+    prisma.user.findUniqueOrThrow({ where: { email: 'ai@example.com' }, select: { id: true } }),
+  ]);
 
   await boss.createQueue('auto-resolve');
 
@@ -63,7 +63,7 @@ export async function registerAutoResolveWorker() {
 
     await prisma.ticket.update({
       where: { id: ticket.id },
-      data: { status: TicketStatus.processing },
+      data: { status: TicketStatus.processing, assignedToId: aiAgentId },
     });
 
     try {
@@ -77,7 +77,7 @@ export async function registerAutoResolveWorker() {
       if (!object.shouldResolve || object.confidence < 0.8) {
         await prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: TicketStatus.open },
+          data: { status: TicketStatus.open, assignedToId: null },
         });
         logger.info({ ticketId: ticket.id, confidence: object.confidence }, 'auto-resolve: escalating to human agent');
         return;
@@ -94,7 +94,7 @@ export async function registerAutoResolveWorker() {
         }),
         prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: TicketStatus.resolved },
+          data: { status: TicketStatus.resolved, resolvedByAi: true, resolvedAt: new Date() },
         }),
       ]);
 

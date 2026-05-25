@@ -5,7 +5,7 @@ import { generateText } from 'ai';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema } from '@helpdesk/core';
 import { validate } from '../lib/validate.js';
-import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply } from '../services/tickets.js';
+import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply, getTicketStats, getDailyVolume } from '../services/tickets.js';
 import { getUserById } from '../services/users.js';
 
 const router: IRouter = Router();
@@ -24,6 +24,16 @@ router.get('/', requireAuth, async (req, res) => {
   const { sortBy, sortDir, status, category, search, page, pageSize } = ticketQuerySchema.parse(req.query);
   const { tickets, total } = await listTickets({ sortBy, sortDir, status, category, search, page, pageSize });
   res.json({ tickets, total });
+});
+
+router.get('/stats', requireAuth, async (_req, res) => {
+  const stats = await getTicketStats();
+  res.json(stats);
+});
+
+router.get('/daily-volume', requireAuth, async (_req, res) => {
+  const data = await getDailyVolume();
+  res.json(data);
 });
 
 router.get('/:id', requireAuth, async (req, res) => {

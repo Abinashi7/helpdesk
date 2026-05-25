@@ -1,8 +1,9 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { PrismaClient, Role } from '../generated/prisma/index.js';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, Role } from '../generated/prisma/client.js';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 // disableSignUp is intentionally omitted here — better-auth enforces it even for
 // direct API calls, which would break seeding. The security guarantee is that this
@@ -39,6 +40,7 @@ async function main() {
 
   await createUser(adminEmail, adminPassword, 'Admin', Role.admin);
   await createUser('agent@example.com', 'password123', 'Agent', Role.agent);
+  await createUser('ai@example.com', crypto.randomUUID(), 'AI', Role.agent);
 }
 
 main()

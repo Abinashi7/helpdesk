@@ -65,7 +65,10 @@ export async function assignTicket(id: number, assignedToId: string | null) {
 export async function updateTicket(id: number, data: { status?: TicketStatus; category?: TicketCategory | null }) {
   return prisma.ticket.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      ...(data.status === TicketStatus.resolved && { resolvedAt: new Date() }),
+    },
     include: { assignedTo: assignedToSelect },
   });
 }
@@ -109,4 +112,56 @@ export async function createTicketFromEmail(data: InboundEmail) {
     if (existing) return existing;
   }
   return prisma.ticket.create({ data });
+}
+
+export async function getDailyVolume(): Promise<{ date: string; count: number }[]> {
+  const rows = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
+    SELECT
+      DATE_TRUNC('day', "createdAt") AS day,
+      COUNT(*)                        AS count
+    FROM tickets
+    WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+    GROUP BY day
+    ORDER BY day ASC
+  `;
+
+  const byDay = new Map(rows.map((r) => [r.day.toISOString().slice(0, 10), Number(r.count)]));
+
+  const result: { date: string; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    result.push({ date: key, count: byDay.get(key) ?? 0 });
+  }
+  return result;
+}
+
+export interface TicketStats {
+  total: number;
+  open: number;
+  resolvedByAi: number;
+  aiResolutionPercent: number;
+  avgResolutionHours: number | null;
+}
+
+interface TicketStatsRow {
+  total: bigint;
+  open: bigint;
+  resolved_by_ai: bigint;
+  ai_resolution_percent: number;
+  avg_resolution_hours: number | null;
+}
+
+export async function getTicketStats(): Promise<TicketStats> {
+  const [row] = await prisma.$queryRaw<[TicketStatsRow]>`SELECT * FROM get_ticket_stats()`;
+
+  return {
+    total: Number(row.total),
+    open: Number(row.open),
+    resolvedByAi: Number(row.resolved_by_ai),
+    aiResolutionPercent: row.ai_resolution_percent,
+    avgResolutionHours: row.avg_resolution_hours,
+  };
 }

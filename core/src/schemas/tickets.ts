@@ -40,3 +40,11 @@ export const polishReplySchema = z.object({
 });
 
 export type PolishReplyInput = z.infer<typeof polishReplySchema>;
+
+export interface TicketStats {
+  total: number;
+  open: number;
+  resolvedByAi: number;
+  aiResolutionPercent: number;
+  avgResolutionHours: number | null;
+}
