@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TicketStatus, TicketCategory, STATUS_LABELS, CATEGORY_LABELS, type Ticket } from '@helpdesk/core';
 import { apiFetch, apiPatch } from '@/lib/api';
 
+const AGENT_STATUSES = [TicketStatus.open, TicketStatus.pending, TicketStatus.closed] as const;
+const AI_STATUSES = new Set<TicketStatus>([TicketStatus.new, TicketStatus.processing, TicketStatus.resolved]);
+
 interface Agent {
   id: string;
   name: string;
@@ -41,16 +44,22 @@ export default function TicketSidebar({ ticket }: Props) {
     <div className="space-y-4 rounded-xl border p-4">
       <div>
         <label className={labelClass}>Status</label>
-        <select
-          value={ticket.status}
-          onChange={(e) => updateMutation.mutate({ status: e.target.value as TicketStatus })}
-          disabled={updateMutation.isPending}
-          className={selectClass}
-        >
-          {Object.values(TicketStatus).map((s) => (
-            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+        {AI_STATUSES.has(ticket.status) ? (
+          <div className={`${selectClass} text-muted-foreground cursor-default`}>
+            {STATUS_LABELS[ticket.status]}
+          </div>
+        ) : (
+          <select
+            value={ticket.status}
+            onChange={(e) => updateMutation.mutate({ status: e.target.value as TicketStatus })}
+            disabled={updateMutation.isPending}
+            className={selectClass}
+          >
+            {AGENT_STATUSES.map((s) => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div>

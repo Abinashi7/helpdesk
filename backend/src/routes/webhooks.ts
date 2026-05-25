@@ -32,6 +32,7 @@ router.post('/email', async (req, res) => {
   if (!ticket.category) {
     boss.send('classify', { ticket });
   }
+  boss.send('auto-resolve', { ticket });
 
   res.json({ ok: true, ticketId: ticket.id });
 });

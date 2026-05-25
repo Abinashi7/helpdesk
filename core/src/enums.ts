@@ -6,9 +6,12 @@ export const Role = {
 export type Role = (typeof Role)[keyof typeof Role];
 
 export const TicketStatus = {
-  open:    'open',
-  pending: 'pending',
-  closed:  'closed',
+  new:        'new',
+  processing: 'processing',
+  open:       'open',
+  pending:    'pending',
+  resolved:   'resolved',
+  closed:     'closed',
 } as const;
 
 export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus];

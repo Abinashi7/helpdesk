@@ -1,9 +1,12 @@
 import { TicketStatus, TicketCategory } from './enums.js';
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
-  open:    'Open',
-  pending: 'Pending',
-  closed:  'Closed',
+  new:        'New',
+  processing: 'Processing',
+  open:       'Open',
+  pending:    'Pending',
+  resolved:   'Resolved',
+  closed:     'Closed',
 };
 
 export const CATEGORY_LABELS: Record<TicketCategory, string> = {

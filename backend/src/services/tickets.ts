@@ -21,6 +21,7 @@ export async function listTickets({
   pageSize = 10,
 }: ListTicketsOptions = {}) {
   const where = {
+    ...(!status && { status: { notIn: [TicketStatus.processing, TicketStatus.resolved] } }),
     ...(status && { status }),
     ...(category && { category }),
     ...(search && {
