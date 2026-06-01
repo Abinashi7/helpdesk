@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import * as Sentry from '@sentry/node';
+import { ZodError } from 'zod';
 import { toNodeHandler } from 'better-auth/node';
 import { env } from './config/env.js';
 import { auth } from './lib/auth.js';
@@ -41,6 +43,12 @@ export function createApp(): Application {
   app.use('/api/users', usersRouter);
   app.use('/api/tickets', ticketsRouter);
   app.use('/api/webhooks', webhooksRouter);
+
+  if (env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app, {
+      shouldHandleError: (err) => !(err instanceof ZodError),
+    });
+  }
 
   app.use(errorHandler);
 

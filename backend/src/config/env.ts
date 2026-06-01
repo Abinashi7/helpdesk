@@ -36,6 +36,10 @@ const envSchema = z.object({
   // Webhooks
   WEBHOOK_SECRET: z.string().optional(),
 
+  // Sentry
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.enum(['production', 'development']).optional(),
+
   // AI
   ANTHROPIC_API_KEY: z.string().optional(),
 });
