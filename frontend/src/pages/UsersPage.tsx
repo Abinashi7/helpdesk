@@ -23,7 +23,7 @@ export default function UsersPage() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Users</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">Users</h1>
         <Button onClick={() => setModalOpen(true)}>Create user</Button>
       </div>
 

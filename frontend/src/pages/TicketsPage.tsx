@@ -81,10 +81,12 @@ export default function TicketsPage() {
     setPage(1);
   }
 
+  const selectClass = "rounded-lg border bg-card px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring hover:bg-muted/50";
+
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold">Tickets</h1>
-      <div className="mt-4 flex items-center gap-3">
+      <h1 className="font-display text-2xl font-bold tracking-tight">Tickets</h1>
+      <div className="mt-4 flex flex-wrap items-center gap-2.5">
         <Input
           type="search"
           placeholder="Search tickets…"
@@ -95,7 +97,7 @@ export default function TicketsPage() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value as TicketStatus | ''); setPage(1); }}
-          className="rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className={selectClass}
         >
           <option value="">All statuses</option>
           <option value={TicketStatus.open}>Open</option>
@@ -106,7 +108,7 @@ export default function TicketsPage() {
         <select
           value={categoryFilter}
           onChange={(e) => { setCategoryFilter(e.target.value as TicketCategory | ''); setPage(1); }}
-          className="rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className={selectClass}
         >
           <option value="">All categories</option>
           <option value={TicketCategory.billing}>Billing</option>

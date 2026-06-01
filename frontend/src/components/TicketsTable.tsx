@@ -38,8 +38,8 @@ const columns: ColumnDef<Ticket>[] = [
     enableSorting: true,
     cell: ({ row }) => (
       <div>
-        <div className="text-gray-900">{row.original.fromName}</div>
-        <div className="text-xs text-gray-500">{row.original.fromEmail}</div>
+        <div className="text-foreground">{row.original.fromName}</div>
+        <div className="text-xs text-muted-foreground">{row.original.fromEmail}</div>
       </div>
     ),
   },
@@ -94,9 +94,9 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
   }
 
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border">
+    <div className="mt-6 overflow-hidden rounded-xl border bg-card shadow-sm">
       <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <thead className="border-b bg-muted/50 text-left">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
@@ -104,7 +104,7 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
                 return (
                   <th
                     key={header.id}
-                    className="px-4 py-3 select-none"
+                    className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none"
                     onClick={header.column.getToggleSortingHandler()}
                     style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
                   >
@@ -116,7 +116,7 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
                         ) : sorted === 'desc' ? (
                           <ChevronDown className="h-3 w-3" aria-hidden />
                         ) : (
-                          <ChevronsUpDown className="h-3 w-3 text-gray-400" aria-hidden />
+                          <ChevronsUpDown className="h-3 w-3 opacity-40" aria-hidden />
                         )
                       )}
                     </span>
@@ -126,7 +126,7 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
             </tr>
           ))}
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-border">
           {isPending
             ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
@@ -140,13 +140,13 @@ export function TicketsTable({ tickets, isPending, isError, sorting, onSortingCh
             : table.getRowModel().rows.length === 0
               ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No tickets yet.
                   </td>
                 </tr>
               )
               : table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-muted/30 transition-colors">
+                <tr key={row.id} className="transition-colors hover:bg-muted/40">
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

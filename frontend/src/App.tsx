@@ -18,7 +18,7 @@ function ProtectedLayout() {
   if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <span className="text-sm text-gray-400">Loading…</span>
+        <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
     );
   }
@@ -41,7 +41,7 @@ function AdminLayout() {
   if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <span className="text-sm text-gray-400">Loading…</span>
+        <span className="text-sm text-muted-foreground">Loading…</span>
       </div>
     );
   }
