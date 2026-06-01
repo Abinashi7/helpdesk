@@ -1,4 +1,4 @@
-# Code with Mosh -- Support Knowledge Base
+# Helpdesk -- Support Knowledge Base
 
 *Last Updated: 2026*
 

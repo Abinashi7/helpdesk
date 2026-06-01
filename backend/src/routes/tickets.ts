@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema } from '@helpdesk/core';
+import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema, ReplySenderType } from '@helpdesk/core';
 import { validate } from '../lib/validate.js';
 import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply, getTicketStats, getDailyVolume } from '../services/tickets.js';
+import { boss } from '../lib/boss.js';
 import { getUserById } from '../services/users.js';
 
 const router: IRouter = Router();
@@ -13,7 +14,7 @@ const router: IRouter = Router();
 const ticketQuerySchema = z.object({
   sortBy: z.enum(['subject', 'fromName', 'category', 'status', 'createdAt']).default('createdAt'),
   sortDir: z.enum(['asc', 'desc']).default('desc'),
-  status: z.enum(['open', 'pending', 'closed']).optional(),
+  status: z.enum(['new', 'processing', 'open', 'pending', 'resolved', 'closed']).optional(),
   category: z.enum(['billing', 'technical', 'account', 'general']).optional(),
   search: z.string().min(1).max(255).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -95,6 +96,15 @@ router.post('/:id/replies', requireAuth, async (req, res) => {
   if (!ticket) { res.status(404).json({ error: 'Not found' }); return; }
   const reply = await createReply(id, res.locals.user.id, data.body, data.senderType, data.bodyHtml);
   res.status(201).json(reply);
+
+  if (data.senderType === ReplySenderType.agent) {
+    boss.send('send-email', {
+      to: ticket.fromEmail,
+      subject: `Re: ${ticket.subject}`,
+      text: data.body,
+      ...(data.bodyHtml && { html: data.bodyHtml }),
+    });
+  }
 });
 
 router.post('/:id/summarize', requireAuth, async (req, res) => {

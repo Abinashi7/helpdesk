@@ -100,6 +100,7 @@ export default function TicketsPage() {
           <option value="">All statuses</option>
           <option value={TicketStatus.open}>Open</option>
           <option value={TicketStatus.pending}>Pending</option>
+          <option value={TicketStatus.resolved}>Resolved</option>
           <option value={TicketStatus.closed}>Closed</option>
         </select>
         <select

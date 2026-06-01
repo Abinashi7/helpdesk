@@ -99,6 +99,12 @@ export async function registerAutoResolveWorker() {
       ]);
 
       logger.info({ ticketId: ticket.id }, 'auto-resolve: ticket resolved by AI');
+
+      boss.send('send-email', {
+        to: ticket.fromEmail,
+        subject: `Re: ${ticket.subject}`,
+        text: object.replyBody,
+      });
     } catch (err) {
       logger.error({ ticketId: ticket.id, err }, 'auto-resolve: error, reverting to open');
       await prisma.ticket.update({

@@ -4,10 +4,12 @@ import { logger } from './lib/logger.js';
 import { boss } from './lib/boss.js';
 import { registerClassifyWorker } from './workers/classify.js';
 import { registerAutoResolveWorker } from './workers/autoResolve.js';
+import { registerSendEmailWorker } from './workers/sendEmail.js';
 
 await boss.start();
 await registerClassifyWorker();
 await registerAutoResolveWorker();
+await registerSendEmailWorker();
 
 const app = createApp();
 

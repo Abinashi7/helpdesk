@@ -29,6 +29,7 @@ const envSchema = z.object({
   // Email
   EMAIL_PROVIDER: z.enum(['sendgrid', 'mailgun']).default('sendgrid'),
   SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().email().optional(),
   MAILGUN_API_KEY: z.string().optional(),
   MAILGUN_DOMAIN: z.string().optional(),
 
