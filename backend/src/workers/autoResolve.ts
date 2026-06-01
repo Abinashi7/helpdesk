@@ -1,5 +1,4 @@
 import { readFileSync } from 'fs';
-import path from 'path';
 import { openai } from '@ai-sdk/openai';
 import { generateObject, jsonSchema } from 'ai';
 import { TicketStatus, ReplySenderType } from '@helpdesk/core';
@@ -9,7 +8,7 @@ import { logger } from '../lib/logger.js';
 import type { Ticket } from '../lib/types.js';
 
 const knowledgeBase = readFileSync(
-  path.resolve(import.meta.dir, '../../../knowledge-base.md'),
+  new URL('../../../knowledge-base.md', import.meta.url),
   'utf-8',
 );
 
@@ -18,22 +17,36 @@ type AutoResolveResult = { shouldResolve: boolean; confidence: number; replyBody
 const schema = jsonSchema<AutoResolveResult>({
   type: 'object',
   properties: {
-    shouldResolve: { type: 'boolean' },
-    confidence: { type: 'number', minimum: 0, maximum: 1 },
-    replyBody: { type: 'string' },
+    shouldResolve: {
+      type: 'boolean',
+      description: 'True ONLY if the knowledge base contains a direct, complete answer to the customer\'s question.',
+    },
+    confidence: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1,
+      description: 'How confident you are (0–1) that the knowledge base fully covers this question. NOT a measure of how well you can generate a reply.',
+    },
+    replyBody: {
+      type: 'string',
+      description: 'The reply to send. Must be empty string if shouldResolve is false.',
+    },
   },
   required: ['shouldResolve', 'confidence', 'replyBody'],
   additionalProperties: false,
 });
 
-const SYSTEM_PROMPT = `You are a customer support AI for Code with Mosh. Use ONLY the knowledge base below to answer customer questions.
+const SYSTEM_PROMPT = `You are a customer support AI for Code with Mosh. Answer ONLY using the knowledge base below. Do NOT use outside knowledge or make up answers.
 
-Set shouldResolve to false and leave replyBody empty if ANY of these conditions apply:
+Set shouldResolve to false and replyBody to "" if ANY of these apply:
+- The message is not a genuine support question (e.g. test emails, gibberish, greetings with no question)
+- The question cannot be answered directly from the knowledge base
+- The answer would require information not present in the knowledge base
 - The customer threatens legal action
 - The customer requests a refund outside the 30-day window
 - The customer disputes a charge or mentions a chargeback
 - The issue involves account security concerns
-- Your confidence is below 0.8
+- Your confidence that the knowledge base fully covers the question is below 0.85
 
 When shouldResolve is true, write a complete, professional reply in replyBody.
 Start with "Hi [customer first name]," and close with "Best regards,\\nCode with Mosh Support".
@@ -74,7 +87,7 @@ export async function registerAutoResolveWorker() {
         prompt: `Subject: ${ticket.subject}\nFrom: ${ticket.fromName} (${ticket.fromEmail})\n\n${ticket.body}`,
       });
 
-      if (!object.shouldResolve || object.confidence < 0.8) {
+      if (!object.shouldResolve || object.confidence < 0.85) {
         await prisma.ticket.update({
           where: { id: ticket.id },
           data: { status: TicketStatus.open, assignedToId: null },
