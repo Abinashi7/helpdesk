@@ -1,3 +1,6 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
 import express, { type Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -34,7 +37,7 @@ export function createApp(): Application {
   }
 
   app.use(express.json());
-  app.use(morgan('dev'));
+  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
@@ -48,6 +51,21 @@ export function createApp(): Application {
     Sentry.setupExpressErrorHandler(app, {
       shouldHandleError: (err) => !(err instanceof ZodError),
     });
+  }
+
+  // In production the backend serves the built React app and handles SPA routing.
+  if (env.NODE_ENV === 'production') {
+    const distPath = fileURLToPath(new URL('../../frontend/dist', import.meta.url));
+    if (existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.use((req, res, next) => {
+        if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+          res.sendFile(join(distPath, 'index.html'));
+        } else {
+          next();
+        }
+      });
+    }
   }
 
   app.use(errorHandler);

@@ -1,0 +1,27 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (installed fresh in Docker)
+node_modules
+*/node_modules
+
+# Build outputs
+frontend/dist
+backend/dist
+backend/generated
+
+# Test artifacts
+e2e/test-results
+e2e/playwright-report
+
+# Local env files — secrets must be injected at runtime, never baked into the image
+.env
+.env.*
+!.env.example
+
+# Editor and tooling
+.claude
+.agents
+*.lock.json
+skills-lock.json
