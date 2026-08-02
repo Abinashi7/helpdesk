@@ -6,6 +6,7 @@ import { boss } from '../lib/boss.js';
 import { prisma } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
+import { AI_AGENT_EMAIL } from '../lib/constants.js';
 import type { Ticket } from '../lib/types.js';
 
 const knowledgeBase = readFileSync(
@@ -61,7 +62,7 @@ export async function registerAutoResolveWorker() {
       where: { email: env.SEED_ADMIN_EMAIL ?? 'admin@example.com' },
       select: { id: true },
     }),
-    prisma.user.findUniqueOrThrow({ where: { email: 'ai@example.com' }, select: { id: true } }),
+    prisma.user.findUniqueOrThrow({ where: { email: AI_AGENT_EMAIL }, select: { id: true } }),
   ]);
 
   await boss.createQueue('auto-resolve');
