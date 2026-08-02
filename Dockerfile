@@ -76,9 +76,13 @@ RUN ln -sf /app/node_modules/.bun/node_modules/prisma /app/node_modules/prisma &
 
 EXPOSE 3000
 
-# Run DB migrations, then start the backend (which also serves the frontend).
+# Run DB migrations, seed the required admin + AI users (idempotent — skips
+# users that already exist), then start the backend (which also serves the
+# frontend). The seed is required: the auto-resolve worker looks up the admin
+# and ai@example.com users at startup. Needs SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD.
 # DATABASE_URL and other secrets are injected by Railway at runtime.
 CMD ["sh", "-c", \
      "cd backend && \
       bun /app/node_modules/.bun/node_modules/prisma/build/index.js migrate deploy && \
+      bun prisma/seed.ts && \
       bun src/index.ts"]

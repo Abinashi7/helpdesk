@@ -5,6 +5,7 @@ import { TicketStatus, ReplySenderType } from '@helpdesk/core';
 import { boss } from '../lib/boss.js';
 import { prisma } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
+import { env } from '../config/env.js';
 import type { Ticket } from '../lib/types.js';
 
 const knowledgeBase = readFileSync(
@@ -56,7 +57,10 @@ ${knowledgeBase}`;
 
 export async function registerAutoResolveWorker() {
   const [{ id: systemAuthorId }, { id: aiAgentId }] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { email: 'admin@example.com' }, select: { id: true } }),
+    prisma.user.findUniqueOrThrow({
+      where: { email: env.SEED_ADMIN_EMAIL ?? 'admin@example.com' },
+      select: { id: true },
+    }),
     prisma.user.findUniqueOrThrow({ where: { email: 'ai@example.com' }, select: { id: true } }),
   ]);
 
