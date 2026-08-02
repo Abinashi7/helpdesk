@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Role } from '../generated/prisma/client.js';
+import { AI_AGENT_EMAIL } from '../src/lib/constants.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
@@ -40,7 +41,7 @@ async function main() {
 
   await createUser(adminEmail, adminPassword, 'Admin', Role.admin);
   await createUser('agent@example.com', 'password123', 'Agent', Role.agent);
-  await createUser('ai@example.com', crypto.randomUUID(), 'AI', Role.agent);
+  await createUser(AI_AGENT_EMAIL, crypto.randomUUID(), 'AI', Role.agent);
 }
 
 main()

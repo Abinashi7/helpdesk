@@ -129,6 +129,10 @@ test.describe('Users page — admin CRUD', () => {
 
       // Admin rows show the "admin" role badge.
       await expect(page.getByText('admin').first()).toBeVisible();
+
+      // The seeded AI auto-resolve user is a system account and must never
+      // appear in the admin list (it could otherwise be edited or deleted).
+      await expect(page.getByRole('cell', { name: 'ai@example.com' })).not.toBeVisible();
     });
 
     test('newly-created user appears in the table', async ({ page, request }) => {

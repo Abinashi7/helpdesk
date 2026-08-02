@@ -4,6 +4,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { prisma } from '../lib/db.js';
 import { Role } from '../lib/types.js';
 import { env } from '../config/env.js';
+import { AI_AGENT_EMAIL } from '../lib/constants.js';
 
 // Separate instance without disableSignUp so admins can create users
 const userCreationAuth = betterAuth({
@@ -23,7 +24,7 @@ const userSelect = {
 
 export async function listUsers() {
   return prisma.user.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, email: { not: AI_AGENT_EMAIL } },
     select: userSelect,
     orderBy: { createdAt: 'asc' },
   });

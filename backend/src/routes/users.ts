@@ -1,6 +1,7 @@
 import { Router, type IRouter } from 'express';
 import { createUserSchema, updateUserSchema } from '@helpdesk/core';
 import { Role } from '../lib/types.js';
+import { AI_AGENT_EMAIL } from '../lib/constants.js';
 import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
@@ -68,6 +69,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
   if (target.role === Role.admin) {
     res.status(403).json({ error: 'Admin users cannot be deleted' });
+    return;
+  }
+
+  if (target.email === AI_AGENT_EMAIL) {
+    res.status(403).json({ error: 'The AI agent user cannot be deleted' });
     return;
   }
 
