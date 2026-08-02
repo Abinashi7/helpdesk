@@ -1,7 +1,7 @@
 # Helpdesk — Project Memory
 
 ## What this is
-AI-powered email ticket management system. Emails arrive via SendGrid/Mailgun webhook, Claude classifies and auto-replies to common questions from a knowledge base, complex ones are routed to human agents.
+AI-powered email ticket management system. Emails arrive via a Mailgun inbound-route webhook, Claude classifies and auto-replies to common questions from a knowledge base, complex ones are routed to human agents.
 
 ## Stack
 - **Runtime**: Bun
@@ -9,6 +9,22 @@ AI-powered email ticket management system. Emails arrive via SendGrid/Mailgun we
 - **Frontend**: React 19 + Vite 6 + Tailwind CSS 4 + shadcn/ui
 - **Auth**: better-auth (email+password, sign-up disabled — admin created via seed only)
 - **AI**: OpenAI `gpt-5-nano` (default model for all AI features — classify worker, auto-resolve worker, summarize endpoint)
+- **Email**: Mailgun (`mailgun.js`) — outbound sends and inbound routes. Migrated off SendGrid in Aug 2026 when its permanent free tier was retired.
+
+## Email (Mailgun)
+
+**Outbound** — `backend/src/lib/mailer.ts` exposes `sendEmail()`, driven by the `send-email` pg-boss queue. Needs `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_FROM_EMAIL`; no-ops with a warning when unset. EU-region accounts must set `MAILGUN_API_URL=https://api.eu.mailgun.net`.
+
+**Inbound** — `POST /api/webhooks/email` (`backend/src/routes/webhooks.ts`). Configure a Mailgun route with the **Store and notify** action pointing at that URL.
+
+- Mailgun posts `application/x-www-form-urlencoded`, switching to `multipart/form-data` when the message has attachments. The route chains `express.urlencoded()` and `multer` so both parse.
+- Fields used: `from`, `subject`, `stripped-text` → `body-plain` → `body-html` (in that order — `stripped-text` drops the quoted thread, which keeps replies useful for classification), and `message-headers` (a JSON array of `[name, value]` pairs) for the `Message-Id`.
+
+**Webhook auth** — `backend/src/middleware/verifyMailgunWebhook.ts`:
+- When `MAILGUN_SIGNING_KEY` is set, requests must carry a valid Mailgun HMAC-SHA256 signature over `timestamp + token`. **Set this in production.**
+- Otherwise falls back to the `WEBHOOK_SECRET` shared secret (dev + e2e, where requests aren't Mailgun-signed).
+- In production with neither set, the endpoint returns 401 rather than accepting unauthenticated ticket creation.
+- The signature is in the request *body*, so this middleware runs **after** the body parsers — unlike every other middleware in the app.
 
 ## Monorepo layout
 ```

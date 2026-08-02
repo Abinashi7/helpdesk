@@ -24,7 +24,7 @@
 - **Queue**: BullMQ + Redis (async email processing, AI calls)
 
 ## Email
-- **Provider**: SendGrid or Mailgun (end-to-end)
+- **Provider**: Mailgun (end-to-end) — chosen Aug 2026 after SendGrid retired its permanent free tier
 - **Inbound**: Inbound parse webhook — provider receives emails at your support address and POSTs them to your Express endpoint
 - **Outbound**: Send replies via provider API
 

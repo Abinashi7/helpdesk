@@ -1,12 +1,23 @@
-import { Router, type IRouter } from 'express';
+import express, { Router, type IRouter } from 'express';
 import multer from 'multer';
-import Parse from '@sendgrid/inbound-mail-parser';
 import { createTicketFromEmail } from '../services/tickets.js';
 import { boss } from '../lib/boss.js';
-import { requireWebhookSecret } from '../middleware/requireWebhookSecret.js';
+import { verifyMailgunWebhook } from '../middleware/verifyMailgunWebhook.js';
 
 const router: IRouter = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Mailgun caps message size at 25 MB and posts inbound routes as
+// application/x-www-form-urlencoded, switching to multipart/form-data when the
+// message carries attachments. Both parsers are no-ops for the other's content
+// type, so chaining them covers either shape.
+const MAX_PAYLOAD = 25 * 1024 * 1024;
+const urlencoded = express.urlencoded({ extended: true, limit: MAX_PAYLOAD });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_PAYLOAD } });
+
+function field(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
 
 function parseFrom(from: string): { fromEmail: string; fromName: string } {
   const match = from.match(/^(.*?)\s*<(.+?)>\s*$/);
@@ -19,33 +30,63 @@ function parseFrom(from: string): { fromEmail: string; fromName: string } {
   return { fromEmail: email, fromName: email };
 }
 
-function extractMessageId(headers: string): string | undefined {
-  const match = headers.match(/^Message-ID:\s*<(.+?)>/im);
-  return match?.[1];
+/**
+ * Mailgun sends `message-headers` as a JSON string of [name, value] pairs, and
+ * also mirrors each MIME header as its own form field. Prefer the structured
+ * list and fall back to the mirrored field.
+ */
+function extractMessageId(body: Record<string, unknown>): string | undefined {
+  const raw = field(body, 'message-headers');
+  if (raw) {
+    try {
+      const headers = JSON.parse(raw) as unknown;
+      if (Array.isArray(headers)) {
+        for (const entry of headers) {
+          if (
+            Array.isArray(entry) &&
+            typeof entry[0] === 'string' &&
+            typeof entry[1] === 'string' &&
+            entry[0].toLowerCase() === 'message-id'
+          ) {
+            return entry[1].replace(/^<|>$/g, '');
+          }
+        }
+      }
+    } catch {
+      // Malformed header JSON is not worth failing the whole delivery over —
+      // fall through to the mirrored field below.
+    }
+  }
+
+  const mirrored = field(body, 'Message-Id') ?? field(body, 'Message-ID');
+  return mirrored?.replace(/^<|>$/g, '');
 }
 
-router.post('/email', requireWebhookSecret, upload.any(), async (req, res) => {
-  const parser = new Parse(
-    { keys: ['from', 'subject', 'text', 'html', 'headers'] },
-    { body: req.body, files: (req.files as Express.Multer.File[]) ?? [] },
-  );
+router.post('/email', urlencoded, upload.any(), verifyMailgunWebhook, async (req, res) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
 
-  const fields = parser.keyValues();
-  const rawFrom: string = fields.from ?? '';
-  const subject: string = fields.subject ?? '';
-  const body: string = (fields.text ?? fields.html ?? '').trim();
+  const rawFrom = field(body, 'from');
+  const subject = field(body, 'subject');
+  // `stripped-text` drops the quoted thread and signature block, which keeps
+  // reply emails useful for classification. Fall back to the full body.
+  const emailBody = (
+    field(body, 'stripped-text') ??
+    field(body, 'body-plain') ??
+    field(body, 'body-html') ??
+    ''
+  ).trim();
 
-  if (!rawFrom || !subject || !body) {
+  if (!rawFrom || !subject || !emailBody) {
     res.status(400).json({ error: 'Missing required email fields' });
     return;
   }
 
   const { fromEmail, fromName } = parseFrom(rawFrom);
-  const messageId = fields.headers ? extractMessageId(fields.headers) : undefined;
+  const messageId = extractMessageId(body);
 
   const ticket = await createTicketFromEmail({
     subject: subject.slice(0, 500),
-    body: body.slice(0, 100_000),
+    body: emailBody.slice(0, 100_000),
     fromEmail: fromEmail.slice(0, 255),
     fromName: fromName.slice(0, 100),
     messageId,

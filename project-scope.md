@@ -7,7 +7,7 @@ We receive a large volume of support request emails from consumers. Agents manua
 AI monitors a Gmail inbox, converts emails into tickets, and auto-replies to menial/common questions by referencing a knowledge base. Complex issues are flagged and routed to human agents for review.
 
 ## Email Intake
-- SendGrid or Mailgun (end-to-end: inbound parse + outbound sending)
+- Mailgun (end-to-end: inbound routes + outbound sending)
 - Support address MX records point to the provider; incoming emails are POSTed to an Express webhook
 - ~100 emails/day expected volume
 - Incoming replies to existing threads reopen/update the same ticket (conversation threading)

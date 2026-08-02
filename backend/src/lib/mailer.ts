@@ -1,9 +1,24 @@
-import sgMail from '@sendgrid/mail';
+import FormData from 'form-data';
+import Mailgun from 'mailgun.js';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
 
-if (env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(env.SENDGRID_API_KEY);
+// mailgun.js v13 does not re-export IMailgunClient from a stable subpath, so
+// derive the client type from the SDK's own signature.
+type MailgunClient = ReturnType<Mailgun['client']>;
+
+let client: MailgunClient | undefined;
+
+function getClient(): MailgunClient | undefined {
+  if (!env.MAILGUN_API_KEY) return undefined;
+  if (!client) {
+    client = new Mailgun(FormData).client({
+      username: 'api',
+      key: env.MAILGUN_API_KEY,
+      url: env.MAILGUN_API_URL,
+    });
+  }
+  return client;
 }
 
 export async function sendEmail({
@@ -17,14 +32,18 @@ export async function sendEmail({
   text: string;
   html?: string;
 }) {
-  if (!env.SENDGRID_API_KEY || !env.SENDGRID_FROM_EMAIL) {
-    logger.warn('sendEmail: SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not configured, skipping');
+  const mg = getClient();
+
+  if (!mg || !env.MAILGUN_DOMAIN || !env.MAILGUN_FROM_EMAIL) {
+    logger.warn(
+      'sendEmail: MAILGUN_API_KEY, MAILGUN_DOMAIN or MAILGUN_FROM_EMAIL not configured, skipping',
+    );
     return;
   }
 
-  await sgMail.send({
+  await mg.messages.create(env.MAILGUN_DOMAIN, {
     to,
-    from: env.SENDGRID_FROM_EMAIL,
+    from: env.MAILGUN_FROM_EMAIL,
     subject,
     text,
     ...(html && { html }),
