@@ -26,14 +26,20 @@ const envSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
 
-  // Email
-  EMAIL_PROVIDER: z.enum(['sendgrid', 'mailgun']).default('sendgrid'),
-  SENDGRID_API_KEY: z.string().optional(),
-  SENDGRID_FROM_EMAIL: z.string().email().optional(),
+  // Email (Mailgun)
   MAILGUN_API_KEY: z.string().optional(),
   MAILGUN_DOMAIN: z.string().optional(),
+  MAILGUN_FROM_EMAIL: z.string().email().optional(),
+  // EU-region Mailgun accounts must use https://api.eu.mailgun.net — the US
+  // default silently 401s against an EU domain.
+  MAILGUN_API_URL: z.string().url().default('https://api.mailgun.net'),
 
   // Webhooks
+  // Mailgun's HTTP webhook signing key (Dashboard → Sending → Webhooks).
+  // This is NOT the API key. When set, inbound requests must carry a valid
+  // Mailgun HMAC signature.
+  MAILGUN_SIGNING_KEY: z.string().optional(),
+  // Fallback shared secret for local/e2e requests that aren't signed by Mailgun.
   WEBHOOK_SECRET: z.string().optional(),
 
   // Sentry

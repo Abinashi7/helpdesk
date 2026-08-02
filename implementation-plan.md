@@ -40,7 +40,7 @@
 
 ## Phase 4 — Email Integration
 
-- [ ] Choose provider: SendGrid or Mailgun; create account, configure MX records
+- [x] Choose provider: Mailgun; create account, configure MX records
 - [ ] `POST /webhooks/email` — inbound parse webhook endpoint
 - [ ] Parse inbound email payload (sender, subject, body, message ID, in-reply-to header)
 - [ ] Thread detection: match `In-Reply-To` header to existing ticket → reopen/append message
