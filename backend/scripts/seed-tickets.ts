@@ -1,6 +1,6 @@
-import { PrismaClient, TicketStatus, TicketCategory } from '../generated/prisma/index.js';
-
-const prisma = new PrismaClient();
+import { TicketCategory, TicketStatus, ReplySenderType } from '../generated/prisma/client.js';
+import { prisma } from '../src/lib/db.js';
+import { SEED_MESSAGE_PREFIX, firstName, pick, rng, seedAuthors, shuffle } from './seed-utils.js';
 
 const tickets = [
   // Billing — open
@@ -127,10 +127,194 @@ const tickets = [
   { subject: 'Holiday auto-reply setup', fromName: 'Katinka Bos', fromEmail: 'katinka.b@hollandco.nl', category: TicketCategory.general, status: TicketStatus.closed, body: "We want to set up an auto-reply for the upcoming public holidays (April 27 – May 5) informing customers of reduced support availability. How do I schedule an auto-reply with start/end dates that turns off automatically?" },
 ];
 
+const DAYS = 30;
+const HOUR = 3_600_000;
+
+/** Share of terminal tickets that land in `resolved` rather than `closed`. */
+const RESOLVED_SHARE = 0.55;
+/** Share of terminal tickets credited to the AI. Bounded by NEVER_AUTO_RESOLVED below. */
+const AI_SHARE = 0.5;
+
+/**
+ * Mirrors the escalation rules in `src/workers/autoResolve.ts` — refunds, chargebacks,
+ * legal threats and account-security issues are never auto-answered. Seeded data must not
+ * claim the AI resolved a ticket the real worker would have escalated to a human.
+ */
+const NEVER_AUTO_RESOLVED = new RegExp(
+  [
+    // refunds, chargebacks, billing disputes
+    'refund', 'chargeback', 'charged twice', 'dispute', 'compensation', 'unauthoriz',
+    // legal threats
+    'legal', 'lawyer',
+    // account security
+    'security', 'breach', 'compromis', 'revoke', 'deactivate', 'suspend', 'reactivat',
+    'former employee', 'offboard', 'admin-level', 'password', '2fa', 'two-factor', 'sso',
+  ].join('|'),
+  'i',
+);
+
+type SeedTicket = (typeof tickets)[number];
+
+function isAutoResolvable(t: SeedTicket): boolean {
+  // The classify worker runs before auto-resolve, so an untagged ticket never
+  // reaches the AI answerer — those stay uncategorised and human-handled.
+  if (!t.category) return false;
+  return !NEVER_AUTO_RESOLVED.test(`${t.subject} ${t.body}`);
+}
+
+/**
+ * One createdAt per ticket, spread across the trailing 30 days that
+ * `getDailyVolume()` charts. Weekends are damped — a flat distribution reads as a
+ * fixture rather than a support queue.
+ */
+function volumeCurve(random: () => number): Date[] {
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+
+  const days = Array.from({ length: DAYS }, (_, i) => {
+    const date = new Date(midnight);
+    date.setUTCDate(date.getUTCDate() - (DAYS - 1 - i));
+    const weekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
+    return { date, weight: (weekend ? 0.3 : 1) * (0.75 + random() * 0.5) };
+  });
+
+  const totalWeight = days.reduce((sum, d) => sum + d.weight, 0);
+  const exact = days.map((d) => (d.weight / totalWeight) * tickets.length);
+  const counts = exact.map(Math.floor);
+
+  // Largest remainder, so the per-day counts sum to exactly tickets.length.
+  const shortfall = tickets.length - counts.reduce((a, b) => a + b, 0);
+  exact
+    .map((value, index) => ({ index, frac: value - Math.floor(value) }))
+    .sort((a, b) => b.frac - a.frac)
+    .slice(0, shortfall)
+    .forEach(({ index }) => counts[index]++);
+
+  const now = Date.now();
+  const stamps: Date[] = [];
+
+  days.forEach((day, i) => {
+    for (let n = 0; n < counts[i]; n++) {
+      const at = new Date(day.date);
+      at.setUTCHours(7 + Math.floor(random() * 12), Math.floor(random() * 60), Math.floor(random() * 60), 0);
+      // Today's slot can overshoot the clock — pull those back into the recent past.
+      if (at.getTime() > now) at.setTime(now - Math.floor(random() * 6 * HOUR));
+      stamps.push(at);
+    }
+  });
+
+  return stamps;
+}
+
+/** The auto-resolve worker answers within a minute of ingestion; humans take hours. */
+function resolutionDelay(random: () => number, byAi: boolean): number {
+  return byAi ? (0.5 + random() * 4) * 60_000 : (3 + random() * 45) * HOUR;
+}
+
+const AI_REPLIES: readonly string[] = [
+  'Hi {first},\n\nThanks for reaching out about "{subject}". I checked this against our documentation and it is covered there in full — the relevant article walks through it step by step and applies to your current plan.\n\nIf you work through it and still run into trouble, just reply to this email and a member of the team will pick it up directly.\n\nBest regards,\nCode with Mosh Support',
+  'Hi {first},\n\nThanks for getting in touch. Our documentation covers "{subject}" directly, so I can answer this straight away: the setting you need is available on your plan, and the help centre article on this topic has the exact steps and screenshots.\n\nIf anything there does not match what you are seeing, reply here and an agent will take a closer look.\n\nBest regards,\nCode with Mosh Support',
+  'Hi {first},\n\nThanks for writing in. This one is documented — "{subject}" is covered in our help centre, and the article there answers it end to end without any changes needed on our side.\n\nDo reply to this email if the steps do not resolve it and a human agent will follow up.\n\nBest regards,\nCode with Mosh Support',
+];
+
+const AGENT_REPLIES: readonly string[] = [
+  'Hi {first},\n\nThanks for your patience on this. I have reproduced what you described and passed the details to our engineering team — I will update you here as soon as I have something concrete.\n\nBest regards,\n{agent}',
+  'Hi {first},\n\nI have looked into this on our side and applied the change to your account. Could you confirm it now behaves as you expect? If not, I will keep digging.\n\nBest regards,\n{agent}',
+  'Hi {first},\n\nThanks for flagging this. I needed a little more detail before I could act — could you send the exact timestamp and the account ID you were signed in as when it happened?\n\nBest regards,\n{agent}',
+];
+
+function fill(template: string, values: { first: string; agent: string; subject: string }): string {
+  return template
+    .replace('{first}', values.first)
+    .replace('{agent}', values.agent)
+    .replace('{subject}', values.subject);
+}
+
 async function main() {
-  console.log(`Creating ${tickets.length} tickets...`);
-  let created = 0;
-  for (const t of tickets) {
+  const random = rng(20260825);
+  const { ai, agent } = await seedAuthors();
+
+  const removed = await prisma.ticket.deleteMany({
+    where: { messageId: { startsWith: SEED_MESSAGE_PREFIX } },
+  });
+  if (removed.count > 0) console.log(`Cleared ${removed.count} previously seeded ticket(s).`);
+
+  const stamps = volumeCurve(random);
+  // Decouple the date from the authored ordering, so categories and statuses do not
+  // arrive in blocks on the chart.
+  const order = shuffle(random, tickets.map((_, i) => i));
+
+  // The authored `closed` tickets are the pool of closed-out work. Split them into
+  // resolved vs closed, and credit the AI only where the escalation rules allow it.
+  const terminal = shuffle(
+    random,
+    tickets.map((t, i) => ({ t, i })).filter(({ t }) => t.status === TicketStatus.closed),
+  );
+
+  const aiTarget = Math.round(terminal.length * AI_SHARE);
+  const aiResolved = new Set<number>();
+  for (const { t, i } of terminal) {
+    if (aiResolved.size >= aiTarget) break;
+    if (isAutoResolvable(t)) aiResolved.add(i);
+  }
+
+  const markedResolved = new Set(
+    terminal.slice(0, Math.round(terminal.length * RESOLVED_SHARE)).map(({ i }) => i),
+  );
+
+  const now = Date.now();
+  let replyCount = 0;
+
+  for (const [n, index] of order.entries()) {
+    const t = tickets[index];
+    const createdAt = stamps[n];
+    const fillValues = { first: firstName(t.fromName), agent: agent.name, subject: t.subject };
+
+    const isTerminal = t.status === TicketStatus.closed;
+    const byAi = aiResolved.has(index);
+    const status = isTerminal
+      ? markedResolved.has(index)
+        ? TicketStatus.resolved
+        : TicketStatus.closed
+      : t.status;
+
+    const resolvedAt = isTerminal
+      ? new Date(Math.min(createdAt.getTime() + resolutionDelay(random, byAi), now))
+      : null;
+
+    const replies: {
+      body: string;
+      senderType: ReplySenderType;
+      createdAt: Date;
+      updatedAt: Date;
+      author: { connect: { id: string } };
+    }[] = [];
+
+    if (isTerminal && resolvedAt) {
+      const at = byAi
+        ? resolvedAt
+        : new Date(createdAt.getTime() + (resolvedAt.getTime() - createdAt.getTime()) * 0.6);
+      replies.push({
+        body: byAi
+          ? fill(pick(random, AI_REPLIES), fillValues)
+          : fill(pick(random, AGENT_REPLIES), fillValues),
+        senderType: ReplySenderType.agent,
+        createdAt: at,
+        updatedAt: at,
+        author: { connect: { id: byAi ? ai.id : agent.id } },
+      });
+    } else if (t.status === TicketStatus.pending) {
+      // `pending` means we are waiting on the customer, which implies an agent already replied.
+      const at = new Date(Math.min(createdAt.getTime() + (1 + random() * 7) * HOUR, now));
+      replies.push({
+        body: fill(pick(random, AGENT_REPLIES), fillValues),
+        senderType: ReplySenderType.agent,
+        createdAt: at,
+        updatedAt: at,
+        author: { connect: { id: agent.id } },
+      });
+    }
+
     await prisma.ticket.create({
       data: {
         subject: t.subject,
@@ -138,16 +322,31 @@ async function main() {
         fromName: t.fromName,
         fromEmail: t.fromEmail,
         category: t.category ?? undefined,
-        status: t.status,
-        messageId: `seed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        status,
+        resolvedByAi: byAi,
+        resolvedAt,
+        createdAt,
+        updatedAt: resolvedAt ?? createdAt,
+        messageId: `${SEED_MESSAGE_PREFIX}${index}@demo.helpdesk`,
+        ...(replies.length > 0 && { replies: { create: replies } }),
       },
     });
-    created++;
-    if (created % 10 === 0) console.log(`  ${created}/${tickets.length}`);
+
+    replyCount += replies.length;
   }
-  console.log(`Done. Created ${created} tickets.`);
+
+  const aiCount = aiResolved.size;
+  const terminalCount = terminal.length;
+  console.log(
+    `Created ${tickets.length} tickets and ${replyCount} replies across the last ${DAYS} days.\n` +
+      `  resolved/closed: ${terminalCount}  ·  resolved by AI: ${aiCount} ` +
+      `(${Math.round((aiCount / terminalCount) * 100)}% of closed-out tickets)`,
+  );
 }
 
 main()
-  .catch(console.error)
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

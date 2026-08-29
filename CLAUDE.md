@@ -121,6 +121,10 @@ cd backend && bun run db:seed
 # Seed admin into test DB:
 cd backend && bun run db:seed:test
 
+# Load demo data: 93 tickets across the trailing 30 days + one 50-message thread.
+# Requires db:seed first. Idempotent — clears its own `seed-` prefixed rows each run.
+cd backend && bun run db:seed:demo
+
 # Create any user via inline script (bypass disableSignUp):
 cd backend && bun --env-file ../.env -e "
 import { betterAuth } from 'better-auth';

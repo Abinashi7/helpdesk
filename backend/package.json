@@ -15,6 +15,9 @@
     "db:push": "prisma db push",
     "db:seed": "bun --env-file ../.env prisma/seed.ts",
     "db:seed:test": "bun --env-file ../.env.test prisma/seed.ts",
+    "db:seed:demo": "bun --env-file ../.env scripts/seed-tickets.ts && bun --env-file ../.env scripts/seed-long-thread.ts",
+    "db:seed:demo:test": "bun --env-file ../.env.test scripts/seed-tickets.ts && bun --env-file ../.env.test scripts/seed-long-thread.ts",
+    "db:seed:demo:prod": "bun scripts/seed-tickets.ts && bun scripts/seed-long-thread.ts",
     "dev:test": "bun --env-file ../.env.test src/index.ts",
     "db:migrate:test": "bun --env-file ../.env.test -e \"import { execSync } from 'child_process'; execSync('npx prisma migrate deploy', { stdio: 'inherit' });\""
   },

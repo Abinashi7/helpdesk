@@ -214,7 +214,41 @@ Sign in at `http://localhost:5173/login` with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_P
 
 ### Loading sample tickets
 
-`backend/scripts/seed-tickets.ts` contains 93 realistic tickets, but **it does not currently run** — it imports `../generated/prisma/index.js` and constructs `new PrismaClient()` with no arguments, neither of which matches the Prisma 7 client this project generates. To use it, change the import to `../generated/prisma/client.js` and pass the pg adapter the way `backend/prisma/seed.ts` does. `seed-replies-102.ts` has the same problem plus a hardcoded ticket ID and author ID that won't exist in a fresh database.
+```bash
+cd backend && bun run db:seed:demo
+```
+
+That runs two scripts, both of which require `bun run db:seed` to have created the
+`agent@example.com` and `ai@example.com` accounts first:
+
+- **`scripts/seed-tickets.ts`** — 93 realistic tickets spread across the trailing 30 days,
+  weighted so weekdays carry more volume than weekends. A share of the closed-out tickets
+  is marked `resolvedByAi` with a matching reply from the AI account, so the dashboard's
+  AI resolution rate and average resolution time report real numbers. The AI is credited
+  only on tickets the escalation rules in `src/workers/autoResolve.ts` would have allowed
+  it to answer — refunds, chargebacks, legal threats and account-security issues stay
+  human-handled, and untagged tickets are skipped because the classify worker runs first.
+- **`scripts/seed-long-thread.ts`** — one 50-message thread on its own ticket, for
+  demoing the **Summarize** action against a genuinely long conversation.
+
+Both are **idempotent**: every ticket they write carries a `seed-` `messageId` prefix, and
+each run clears its own rows before reinserting. Tickets that arrived through the real
+Mailgun webhook are never touched, so the command is safe to re-run.
+
+Because the dates are computed relative to *run time*, a single run produces a full 30-day
+chart that then decays as the window slides forward. Running it on a schedule is what keeps
+the demo permanently populated — see [Keeping the demo populated](#keeping-the-demo-populated).
+
+### Keeping the demo populated
+
+`getDailyVolume()` charts `NOW() - INTERVAL '30 days'`. The window moves; seeded rows do
+not. Reseed nightly so the window is always full:
+
+```bash
+bun run db:seed:demo:prod    # no --env-file; expects DATABASE_URL in the environment
+```
+
+On Railway, add that as a scheduled cron on the backend service.
 
 ### Testing
 
