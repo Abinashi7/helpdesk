@@ -38,6 +38,10 @@ RUN cd backend && DATABASE_URL="postgresql://x:x@localhost:5432/x" \
     bun /app/node_modules/.bun/node_modules/prisma/build/index.js generate
 
 # Build the React app into frontend/dist.
+# Vite inlines VITE_* at build time, so it must be an ARG — Railway passes service
+# variables to a Dockerfile build only for args the Dockerfile declares.
+ARG VITE_DEMO_MODE
+ENV VITE_DEMO_MODE=$VITE_DEMO_MODE
 RUN cd frontend && bun run build
 
 # ── Stage 3: Production image ────────────────────────────────────────────────
