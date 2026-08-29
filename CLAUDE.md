@@ -155,6 +155,7 @@ await prisma.\$disconnect();
 - Error handler never forwards `err.message` to clients — logs internally, returns generic 500
 - Rate limiting on `/api/auth/*splat` — **production only** (`NODE_ENV === 'production'`), 20 req / 15 min
 - `SESSION_SECRET` removed (was unused; better-auth uses `BETTER_AUTH_SECRET`)
+- `DEMO_MODE=true` (public demo only) — `sendEmail()` logs instead of delivering, summarize/polish capped at 20/hour per user, and `blockInDemo` 403s create/update/delete on `/api/users`
 
 ## Testing strategy
 

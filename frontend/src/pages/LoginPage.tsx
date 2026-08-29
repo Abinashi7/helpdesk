@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ErrorMessage } from '@/components/ui/error-message';
+import { isDemoMode } from '@/components/DemoBanner';
 
 const schema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -15,6 +16,9 @@ const schema = z.object({
 });
 
 type LoginForm = z.infer<typeof schema>;
+
+// Published in the README — the demo account is the restricted `agent` role.
+const DEMO_CREDENTIALS = { email: 'agent@example.com', password: 'password123' };
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -27,11 +31,8 @@ export default function LoginPage() {
     resolver: zodResolver(schema),
   });
 
-  async function onSubmit(data: LoginForm) {
-    const { error } = await authClient.signIn.email({
-      email: data.email,
-      password: data.password,
-    });
+  async function signIn({ email, password }: LoginForm) {
+    const { error } = await authClient.signIn.email({ email, password });
 
     if (error) {
       setError('root', { message: error.message ?? 'Invalid email or password' });
@@ -86,7 +87,7 @@ export default function LoginPage() {
           <h2 className="font-display text-2xl font-bold tracking-tight">Welcome back</h2>
           <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your account to continue</p>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-7 flex flex-col gap-4">
+          <form onSubmit={handleSubmit(signIn)} noValidate className="mt-7 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -123,7 +124,24 @@ export default function LoginPage() {
             <Button type="submit" disabled={isSubmitting} className="mt-1 w-full" size="lg">
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </Button>
+            {isDemoMode && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                disabled={isSubmitting}
+                onClick={() => signIn(DEMO_CREDENTIALS)}
+                className="w-full"
+              >
+                Explore the demo
+              </Button>
+            )}
           </form>
+          {isDemoMode && (
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Signs you in as a support agent with sample data. No sign-up needed.
+            </p>
+          )}
         </div>
       </div>
     </div>

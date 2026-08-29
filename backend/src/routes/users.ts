@@ -5,6 +5,7 @@ import { AI_AGENT_EMAIL } from '../lib/constants.js';
 import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
+import { blockInDemo } from '../middleware/blockInDemo.js';
 import { listUsers, getUserByEmail, createUser, getUserById, updateUser, deleteUser } from '../services/users.js';
 
 const router: IRouter = Router();
@@ -19,7 +20,7 @@ router.get('/agents', requireAuth, async (_req, res) => {
   res.json({ agents: users.map((u) => ({ id: u.id, name: u.name })) });
 });
 
-router.post('/', requireAuth, requireAdmin, async (req, res) => {
+router.post('/', requireAuth, requireAdmin, blockInDemo, async (req, res) => {
   const data = validate(createUserSchema, req.body, res);
   if (!data) return;
 
@@ -35,7 +36,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   res.status(201).json({ user });
 });
 
-router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
+router.patch('/:id', requireAuth, requireAdmin, blockInDemo, async (req, res) => {
   const data = validate(updateUserSchema, req.body, res);
   if (!data) return;
 
@@ -58,7 +59,7 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
   res.json({ user });
 });
 
-router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, blockInDemo, async (req, res) => {
   const { id } = req.params as { id: string };
 
   const target = await getUserById(id);

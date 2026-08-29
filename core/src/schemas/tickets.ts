@@ -41,6 +41,16 @@ export const polishReplySchema = z.object({
 
 export type PolishReplyInput = z.infer<typeof polishReplySchema>;
 
+/** Demo-only: lets a visitor inject a ticket through the same pipeline the Mailgun webhook uses. */
+export const simulateEmailSchema = z.object({
+  subject:   z.string().trim().min(1).max(500),
+  body:      z.string().trim().min(1).max(10_000),
+  fromName:  z.string().trim().min(1).max(100),
+  fromEmail: z.string().trim().email().max(255),
+});
+
+export type SimulateEmailInput = z.infer<typeof simulateEmailSchema>;
+
 export interface TicketStats {
   total: number;
   open: number;

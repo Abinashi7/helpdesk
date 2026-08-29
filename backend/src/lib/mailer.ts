@@ -32,6 +32,11 @@ export async function sendEmail({
   text: string;
   html?: string;
 }) {
+  if (env.DEMO_MODE) {
+    logger.info({ to, subject }, 'sendEmail: DEMO_MODE is on, not delivering');
+    return;
+  }
+
   const mg = getClient();
 
   if (!mg || !env.MAILGUN_DOMAIN || !env.MAILGUN_FROM_EMAIL) {

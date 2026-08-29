@@ -1,15 +1,33 @@
-import { Router, type IRouter } from 'express';
+import { Router, type IRouter, type RequestHandler } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { requireAuth } from '../middleware/requireAuth.js';
-import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema, ReplySenderType } from '@helpdesk/core';
+import { assignTicketSchema, updateTicketSchema, createReplySchema, polishReplySchema, simulateEmailSchema, ReplySenderType } from '@helpdesk/core';
 import { validate } from '../lib/validate.js';
-import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply, getTicketStats, getDailyVolume } from '../services/tickets.js';
+import { listTickets, getTicket, assignTicket, updateTicket, getReplies, createReply, getTicketStats, getDailyVolume, createTicketFromEmail } from '../services/tickets.js';
 import { boss } from '../lib/boss.js';
 import { getUserById } from '../services/users.js';
+import { env } from '../config/env.js';
 
 const router: IRouter = Router();
+
+/**
+ * The summarize and polish endpoints each cost an OpenAI call. On the public demo
+ * they sit behind published credentials, so cap them per signed-in user. Off outside
+ * demo mode — real agents should not be throttled.
+ */
+const aiLimiter: RequestHandler = env.DEMO_MODE
+  ? rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      max: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (_req, res) => res.locals['user'].id as string,
+      message: { error: 'Demo limit reached for AI actions. Please try again later.' },
+    })
+  : (_req, _res, next) => next();
 
 const ticketQuerySchema = z.object({
   sortBy: z.enum(['subject', 'fromName', 'category', 'status', 'createdAt']).default('createdAt'),
@@ -25,6 +43,31 @@ router.get('/', requireAuth, async (req, res) => {
   const { sortBy, sortDir, status, category, search, page, pageSize } = ticketQuerySchema.parse(req.query);
   const { tickets, total } = await listTickets({ sortBy, sortDir, status, category, search, page, pageSize });
   res.json({ tickets, total });
+});
+
+/**
+ * Demo-only counterpart to the Mailgun inbound webhook: creates a ticket and enqueues
+ * the same classify + auto-resolve jobs, so a visitor can watch the AI pipeline run
+ * without sending real email. Off unless DEMO_MODE is set.
+ */
+router.post('/simulate-email', requireAuth, async (req, res) => {
+  if (!env.DEMO_MODE) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+
+  const data = validate(simulateEmailSchema, req.body, res);
+  if (!data) return;
+
+  const ticket = await createTicketFromEmail({
+    ...data,
+    messageId: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  });
+
+  if (!ticket.category) boss.send('classify', { ticket });
+  boss.send('auto-resolve', { ticket });
+
+  res.status(201).json({ ticketId: ticket.id });
 });
 
 router.get('/stats', requireAuth, async (_req, res) => {
@@ -107,7 +150,7 @@ router.post('/:id/replies', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/:id/summarize', requireAuth, async (req, res) => {
+router.post('/:id/summarize', requireAuth, aiLimiter, async (req, res) => {
   const id = parseInt(req.params['id'] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
 
@@ -140,7 +183,7 @@ Do not include greetings, preamble, or commentary — just the summary.`,
   res.json({ summary: text });
 });
 
-router.post('/:id/replies/polish', requireAuth, async (req, res) => {
+router.post('/:id/replies/polish', requireAuth, aiLimiter, async (req, res) => {
   const id = parseInt(req.params['id'] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid ticket id' }); return; }
   const ticket = await getTicket(id);

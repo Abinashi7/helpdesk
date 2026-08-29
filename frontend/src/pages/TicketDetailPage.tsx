@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { type Ticket } from '@helpdesk/core';
+import { TicketStatus, type Ticket } from '@helpdesk/core';
 import { apiFetch } from '@/lib/api';
 import { ErrorMessage } from '@/components/ui/error-message';
 import BackLink from '@/components/BackLink';
@@ -18,6 +18,12 @@ export default function TicketDetailPage() {
     queryKey: ['ticket', id],
     queryFn: () => apiFetch<Ticket>(`/api/tickets/${id}`),
     enabled: !!id,
+    // A freshly ingested ticket is still moving through the classify and
+    // auto-resolve workers — poll so the status transition is visible.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === TicketStatus.new || status === TicketStatus.processing ? 1500 : false;
+    },
   });
 
   return (

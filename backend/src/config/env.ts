@@ -48,6 +48,14 @@ const envSchema = z.object({
 
   // AI
   ANTHROPIC_API_KEY: z.string().optional(),
+
+  // Demo mode — for the public portfolio deployment. Suppresses outbound email,
+  // rate-limits the AI endpoints, and blocks destructive user management, so
+  // published demo credentials can't send real mail or burn API credits.
+  DEMO_MODE: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -6,6 +6,8 @@ import { apiFetch } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TicketsTable } from '@/components/TicketsTable';
+import SimulateEmailModal from '@/components/SimulateEmailModal';
+import { isDemoMode } from '@/components/DemoBanner';
 
 const PAGE_SIZE = 10;
 
@@ -46,6 +48,7 @@ export default function TicketsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [simulateOpen, setSimulateOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -85,7 +88,15 @@ export default function TicketsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="font-display text-2xl font-bold tracking-tight">Tickets</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Tickets</h1>
+        {isDemoMode && (
+          <Button size="sm" onClick={() => setSimulateOpen(true)}>
+            Simulate incoming email
+          </Button>
+        )}
+      </div>
+      {simulateOpen && <SimulateEmailModal onClose={() => setSimulateOpen(false)} />}
       <div className="mt-4 flex flex-wrap items-center gap-2.5">
         <Input
           type="search"

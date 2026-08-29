@@ -3,6 +3,7 @@ import { Headphones, Moon, Sun, LogOut } from 'lucide-react';
 import { Role } from '@helpdesk/core';
 import { authClient } from '@/lib/auth-client';
 import { useDarkMode } from '@/lib/use-dark-mode';
+import DemoBanner from '@/components/DemoBanner';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function Navbar() {
     }`;
 
   return (
+    <>
+    <DemoBanner />
     <nav className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-card/95 px-6 backdrop-blur-sm">
       <div className="flex items-center gap-5">
         <NavLink to="/" className="flex items-center gap-2.5 shrink-0">
@@ -75,5 +78,6 @@ export default function Navbar() {
         </button>
       </div>
     </nav>
+    </>
   );
 }
