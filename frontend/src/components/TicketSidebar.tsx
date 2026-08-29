@@ -91,6 +91,29 @@ export default function TicketSidebar({ ticket }: Props) {
           ))}
         </select>
       </div>
+
+      {ticket.aiConfidence != null && (
+        <div className="border-t pt-4">
+          <label className={labelClass}>AI Triage</label>
+          <p className="text-sm">
+            {ticket.resolvedByAi ? 'Auto-resolved at ' : 'Escalated at '}
+            <span className="font-medium">{ticket.aiConfidence.toFixed(2)} confidence</span>
+            {!ticket.resolvedByAi &&
+              (ticket.aiConfidence < 0.85
+                ? ', below the 0.85 threshold'
+                : ' — blocked by an escalation rule')}
+          </p>
+          {ticket.aiKbSection ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Grounded in knowledge base &sect;{ticket.aiKbSection}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              No knowledge base section covered this question.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

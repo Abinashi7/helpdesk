@@ -10,6 +10,10 @@ export interface Ticket {
   category: TicketCategory | null;
   status: TicketStatus;
   assignedTo: { id: string; name: string } | null;
+  resolvedByAi: boolean;
+  /** Auto-resolve worker's confidence (0-1) and the KB section it grounded the answer in. */
+  aiConfidence: number | null;
+  aiKbSection: string | null;
   createdAt: string;
   updatedAt: string;
 }

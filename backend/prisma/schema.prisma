@@ -49,6 +49,11 @@ model Ticket {
   assignedTo   User?        @relation(fields: [assignedToId], references: [id])
   resolvedByAi Boolean      @default(false)
   resolvedAt   DateTime?
+  // Auto-resolve worker's own confidence (0-1) that the knowledge base covered the
+  // question, and the KB section it grounded the answer in. Recorded on both
+  // outcomes: a resolve and an escalation.
+  aiConfidence Float?
+  aiKbSection  String?
   replies      Reply[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt

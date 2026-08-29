@@ -14,7 +14,7 @@ const knowledgeBase = readFileSync(
   'utf-8',
 );
 
-type AutoResolveResult = { shouldResolve: boolean; confidence: number; replyBody: string };
+type AutoResolveResult = { shouldResolve: boolean; confidence: number; kbSection: string; replyBody: string };
 
 const schema = jsonSchema<AutoResolveResult>({
   type: 'object',
@@ -29,12 +29,16 @@ const schema = jsonSchema<AutoResolveResult>({
       maximum: 1,
       description: 'How confident you are (0–1) that the knowledge base fully covers this question. NOT a measure of how well you can generate a reply.',
     },
+    kbSection: {
+      type: 'string',
+      description: 'The knowledge base section heading the answer is grounded in, copied verbatim (e.g. "1. Account & Login Issues"). Empty string if no section covers the question.',
+    },
     replyBody: {
       type: 'string',
       description: 'The reply to send. Must be empty string if shouldResolve is false.',
     },
   },
-  required: ['shouldResolve', 'confidence', 'replyBody'],
+  required: ['shouldResolve', 'confidence', 'kbSection', 'replyBody'],
   additionalProperties: false,
 });
 
@@ -49,6 +53,8 @@ Set shouldResolve to false and replyBody to "" if ANY of these apply:
 - The customer disputes a charge or mentions a chargeback
 - The issue involves account security concerns
 - Your confidence that the knowledge base fully covers the question is below 0.85
+
+Always set kbSection to the heading of the knowledge base section you relied on, copied verbatim, or "" if none covers the question.
 
 When shouldResolve is true, write a complete, professional reply in replyBody.
 Start with "Hi [customer first name]," and close with "Best regards,\\nCode with Mosh Support".
@@ -92,10 +98,18 @@ export async function registerAutoResolveWorker() {
         prompt: `Subject: ${ticket.subject}\nFrom: ${ticket.fromName} (${ticket.fromEmail})\n\n${ticket.body}`,
       });
 
+      // The model copies the heading verbatim, which can include the markdown hashes.
+      const kbSection = object.kbSection.replace(/^#+\s*/, '').trim() || null;
+
       if (!object.shouldResolve || object.confidence < 0.85) {
         await prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: TicketStatus.open, assignedToId: null },
+          data: {
+            status: TicketStatus.open,
+            assignedToId: null,
+            aiConfidence: object.confidence,
+            aiKbSection: kbSection,
+          },
         });
         logger.info({ ticketId: ticket.id, confidence: object.confidence }, 'auto-resolve: escalating to human agent');
         return;
@@ -112,7 +126,13 @@ export async function registerAutoResolveWorker() {
         }),
         prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: TicketStatus.resolved, resolvedByAi: true, resolvedAt: new Date() },
+          data: {
+            status: TicketStatus.resolved,
+            resolvedByAi: true,
+            resolvedAt: new Date(),
+            aiConfidence: object.confidence,
+            aiKbSection: kbSection,
+          },
         }),
       ]);
 

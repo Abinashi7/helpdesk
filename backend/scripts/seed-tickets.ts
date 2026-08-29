@@ -217,6 +217,18 @@ const AI_REPLIES: readonly string[] = [
   'Hi {first},\n\nThanks for writing in. This one is documented — "{subject}" is covered in our help centre, and the article there answers it end to end without any changes needed on our side.\n\nDo reply to this email if the steps do not resolve it and a human agent will follow up.\n\nBest regards,\nCode with Mosh Support',
 ];
 
+/** Headings from knowledge-base.md, for backfilling what the AI would have cited. */
+const KB_SECTIONS: readonly string[] = [
+  '1. Account & Login Issues',
+  '2. Course Access & Purchases',
+  '3. Lifetime Access',
+  '5. Certificates',
+  '6. Downloading Content',
+  '7. Technical Issues',
+  '8. Coupon Codes',
+  '9. Account Changes',
+];
+
 const AGENT_REPLIES: readonly string[] = [
   'Hi {first},\n\nThanks for your patience on this. I have reproduced what you described and passed the details to our engineering team — I will update you here as soon as I have something concrete.\n\nBest regards,\n{agent}',
   'Hi {first},\n\nI have looked into this on our side and applied the change to your account. Could you confirm it now behaves as you expect? If not, I will keep digging.\n\nBest regards,\n{agent}',
@@ -325,6 +337,12 @@ async function main() {
         status,
         resolvedByAi: byAi,
         resolvedAt,
+        // Only auto-resolved tickets carry the worker's own confidence; a human-handled
+        // ticket never went through the AI answerer.
+        ...(byAi && {
+          aiConfidence: Math.round((0.86 + random() * 0.13) * 100) / 100,
+          aiKbSection: pick(random, KB_SECTIONS),
+        }),
         createdAt,
         updatedAt: resolvedAt ?? createdAt,
         messageId: `${SEED_MESSAGE_PREFIX}${index}@demo.helpdesk`,
