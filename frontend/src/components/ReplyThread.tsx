@@ -18,7 +18,9 @@ interface Props {
 
 export default function ReplyThread({ ticket }: Props) {
   const { data } = useQuery({
-    queryKey: ['replies', ticket.id],
+    // Keyed on status so the thread refetches when the auto-resolve worker finishes:
+    // the first fetch happens while the ticket is still processing and comes back empty.
+    queryKey: ['replies', ticket.id, ticket.status],
     queryFn: () => apiFetch<{ replies: Reply[] }>(`/api/tickets/${ticket.id}/replies`),
   });
 

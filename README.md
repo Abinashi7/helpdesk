@@ -4,22 +4,37 @@ AI-powered email ticket management. Customer emails arrive through a Mailgun inb
 
 The goal is not to replace support agents — it's to keep repetitive, already-documented questions off their queue while making sure the ambiguous, angry, or legally sensitive messages always reach a person.
 
+The interesting part of this project is not that it calls an LLM. It's **where the LLM is not allowed to answer**: the auto-resolve worker must clear a self-reported confidence bar of `0.85`, and a set of hard rules — legal threats, chargebacks, refunds outside the 30-day window, account-security issues — escalate to a human no matter how confident the model is. Every ticket records the score it was judged on, so both decisions are visible in the UI rather than buried in a log.
+
 ---
 
 ## Live demo
 
 **https://helpdesk-production-d081.up.railway.app**
 
-### Demo credentials
+Click **Explore the demo** on the sign-in page — no credentials to type. It signs you in as
+`agent@example.com`, deliberately the **restricted** role: an agent can read tickets, reply,
+reassign, change status, and use the AI features, but `/users` is admin-only and
+`AdminLayout` redirects them away from it.
 
-| Email | Password | Role |
-|---|---|---|
-| `agent@example.com` | `password123` | `agent` |
+### Watch the AI triage a ticket
 
-This is deliberately the **restricted** role, not the admin one. An `agent` can read tickets, reply, reassign, change status, and use the AI features. It **cannot** access `/users` — creating, editing, and deleting users is admin-only, and `AdminLayout` redirects non-admins away from that route.
+The demo's point is the pipeline, so you can run it yourself: **Tickets → Simulate incoming
+email**. That posts through the same code path the Mailgun webhook uses and runs the real
+classify and auto-resolve workers. Three presets show the three outcomes:
 
-> [!WARNING]
-> `agent` is the most restricted role that currently exists, but it is not read-only. A demo user can still send real outbound email through the configured Mailgun domain and spend OpenAI credits via the summarize/polish endpoints. See [Known limitations](#known-limitations) before leaving these credentials public.
+| Preset | What happens |
+|---|---|
+| *Answerable from the KB* | Resolved automatically, ~0.92 confidence, AI reply in the thread |
+| *Blocked by an escalation rule* | Confidence stays high, but the legal-threat rule routes it to a human |
+| *Not covered by the KB* | Confidence near zero — the model declines rather than inventing an answer |
+
+The ticket page polls while the workers run, so you see `new → processing → resolved`
+or `open` rather than a finished result. The sidebar shows the score it was judged on
+and the knowledge base section the answer was grounded in.
+
+The deployment runs with `DEMO_MODE=true`, so outbound email is logged instead of
+delivered, the AI endpoints are capped, and user management is blocked.
 
 ---
 
@@ -339,9 +354,9 @@ Measures currently in place:
 
 **Security**
 
-- **The demo credentials in this README are live.** Anyone who reads them can sign in to the deployed instance, send real email from the configured Mailgun domain, and consume OpenAI credits. There is no read-only role to fall back on — the schema has only `admin` and `agent`. If this repo is public, treat the demo instance as untrusted and don't point it at a domain you care about.
+- **There is still no read-only role** — the schema has only `admin` and `agent`. `DEMO_MODE=true` is what makes the public deployment safe (no outbound email, capped AI endpoints, user writes blocked); with it off, the published demo account can send real mail and spend OpenAI credits.
 - **`password123` is hardcoded** in `backend/prisma/seed.ts` for the agent account, so it's identical in every environment seeded from it, production included.
-- **The AI endpoints are unthrottled.** Rate limiting covers `/api/auth/*` only. `POST /api/tickets/:id/summarize` and `/replies/polish` are authenticated but uncapped, so a single logged-in user can drive unbounded model spend.
+- **The AI endpoints are unthrottled outside demo mode.** Rate limiting covers `/api/auth/*` always, and `summarize` / `replies/polish` only when `DEMO_MODE` is on (20/hour). That cap is keyed per user, so every demo visitor shares one bucket.
 - **Any authenticated agent can act on any ticket.** There is no per-ticket ownership check — assignment is advisory, not enforced.
 - **Mailgun's free tier caps outbound at 100 emails/day**, which is roughly the expected volume here. Auto-replies and agent replies share that budget, so a burst of tickets can silently exhaust the day's quota.
 
@@ -353,7 +368,7 @@ Measures currently in place:
 **AI**
 
 - **No human review before send.** When the auto-resolve worker clears its confidence bar, the reply is written to the thread and emailed to the customer immediately. There is no approval queue and no undo.
-- **Confidence is self-reported.** The `0.85` threshold is a number the model produces about its own coverage of the knowledge base. It correlates with correctness but does not guarantee it, and it is not calibrated against measured accuracy.
+- **Confidence is self-reported.** The `0.85` threshold is a number the model produces about its own coverage of the knowledge base. It is stored on the ticket and shown in the UI, but it correlates with correctness rather than guaranteeing it, and it is not calibrated against measured accuracy.
 - **Grounding is instructional, not enforced.** The prompt says to answer only from the knowledge base, but nothing verifies the reply against it afterwards. A confident, fluent, wrong answer is possible.
 - **The escalation rules are keyword-driven judgement calls** made by the model — legal threats, chargebacks, out-of-window refunds, security issues. Paraphrasing that the model doesn't recognise as one of those categories can slip through.
 - **Classification failures are silent.** If the model returns a category outside the enum, the worker logs a warning and moves on, leaving the ticket uncategorised rather than retrying.
