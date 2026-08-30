@@ -19,6 +19,12 @@ reassign, change status, and use the AI features, but `/users` is admin-only and
 
 ### Watch the AI triage a ticket
 
+![Demo: a ticket auto-resolved at 0.92 confidence, and a legal threat escalated at the same score](docs/demo.gif)
+
+*Two emails, both scored 0.92. The first is auto-resolved and cited back to the knowledge base
+section it came from; the second contains a legal threat, so an escalation rule overrides the
+score. Higher quality: [demo.mp4](docs/demo.mp4).*
+
 The demo's point is the pipeline, so you can run it yourself: **Tickets → Simulate incoming
 email**. That posts through the same code path the Mailgun webhook uses and runs the real
 classify and auto-resolve workers. Three presets show the three outcomes:
