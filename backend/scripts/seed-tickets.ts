@@ -212,9 +212,9 @@ function resolutionDelay(random: () => number, byAi: boolean): number {
 }
 
 const AI_REPLIES: readonly string[] = [
-  'Hi {first},\n\nThanks for reaching out about "{subject}". I checked this against our documentation and it is covered there in full — the relevant article walks through it step by step and applies to your current plan.\n\nIf you work through it and still run into trouble, just reply to this email and a member of the team will pick it up directly.\n\nBest regards,\nCode with Mosh Support',
-  'Hi {first},\n\nThanks for getting in touch. Our documentation covers "{subject}" directly, so I can answer this straight away: the setting you need is available on your plan, and the help centre article on this topic has the exact steps and screenshots.\n\nIf anything there does not match what you are seeing, reply here and an agent will take a closer look.\n\nBest regards,\nCode with Mosh Support',
-  'Hi {first},\n\nThanks for writing in. This one is documented — "{subject}" is covered in our help centre, and the article there answers it end to end without any changes needed on our side.\n\nDo reply to this email if the steps do not resolve it and a human agent will follow up.\n\nBest regards,\nCode with Mosh Support',
+  'Hi {first},\n\nThanks for reaching out about "{subject}". I checked this against our documentation and it is covered there in full — the relevant article walks through it step by step and applies to your current plan.\n\nIf you work through it and still run into trouble, just reply to this email and a member of the team will pick it up directly.\n\nBest regards,\nNorthwind Academy Support',
+  'Hi {first},\n\nThanks for getting in touch. Our documentation covers "{subject}" directly, so I can answer this straight away: the setting you need is available on your plan, and the help centre article on this topic has the exact steps and screenshots.\n\nIf anything there does not match what you are seeing, reply here and an agent will take a closer look.\n\nBest regards,\nNorthwind Academy Support',
+  'Hi {first},\n\nThanks for writing in. This one is documented — "{subject}" is covered in our help centre, and the article there answers it end to end without any changes needed on our side.\n\nDo reply to this email if the steps do not resolve it and a human agent will follow up.\n\nBest regards,\nNorthwind Academy Support',
 ];
 
 /** Headings from knowledge-base.md, for backfilling what the AI would have cited. */
