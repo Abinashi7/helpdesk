@@ -5,7 +5,6 @@ import { TicketStatus, ReplySenderType } from '@helpdesk/core';
 import { boss } from '../lib/boss.js';
 import { prisma } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
-import { env } from '../config/env.js';
 import { AI_AGENT_EMAIL } from '../lib/constants.js';
 import type { Ticket } from '../lib/types.js';
 
@@ -63,13 +62,12 @@ KNOWLEDGE BASE:
 ${knowledgeBase}`;
 
 export async function registerAutoResolveWorker() {
-  const [{ id: systemAuthorId }, { id: aiAgentId }] = await Promise.all([
-    prisma.user.findUniqueOrThrow({
-      where: { email: env.SEED_ADMIN_EMAIL ?? 'admin@example.com' },
-      select: { id: true },
-    }),
-    prisma.user.findUniqueOrThrow({ where: { email: AI_AGENT_EMAIL }, select: { id: true } }),
-  ]);
+  // The AI account authors its own replies — attributing them to the admin made an
+  // auto-resolved answer look like a human agent wrote it.
+  const { id: aiAgentId } = await prisma.user.findUniqueOrThrow({
+    where: { email: AI_AGENT_EMAIL },
+    select: { id: true },
+  });
 
   await boss.createQueue('auto-resolve');
 
@@ -119,7 +117,7 @@ export async function registerAutoResolveWorker() {
         prisma.reply.create({
           data: {
             ticketId: ticket.id,
-            authorId: systemAuthorId,
+            authorId: aiAgentId,
             body: object.replyBody,
             senderType: ReplySenderType.agent,
           },
