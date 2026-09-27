@@ -18,8 +18,8 @@ export default function TicketDetailPage() {
     queryKey: ['ticket', id],
     queryFn: () => apiFetch<Ticket>(`/api/tickets/${id}`),
     enabled: !!id,
-    // A freshly ingested ticket is still moving through the classify and
-    // auto-resolve workers — poll so the status transition is visible.
+    // A freshly ingested ticket is still moving through TypeSafe triage and
+    // auto-resolution — poll so the status transition is visible.
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === TicketStatus.new || status === TicketStatus.processing ? 1500 : false;

@@ -19,8 +19,10 @@ const PRESETS: { label: string; hint: string; values: SimulateEmailInput }[] = [
     label: 'Answerable from the KB',
     hint: 'The AI should resolve this automatically',
     values: {
-      subject: 'How do I reset my password?',
-      body: "I can't remember my password and the login page keeps rejecting me. How do I reset it?",
+      // Scores ~0.93 KB coverage in Jev — clear of the 0.90 auto-resolve gate. The
+      // earlier password-reset wording scored 0.86 and escalated, breaking the demo.
+      subject: 'Do I get a certificate?',
+      body: "I'm about halfway through my course. Will I get a certificate when I finish it?",
       fromName: 'Priya Raman',
       fromEmail: 'priya.raman@example.com',
     },
@@ -93,7 +95,7 @@ export default function SimulateEmailModal({ onClose }: { onClose: () => void })
         <h2 className="text-lg font-semibold">Simulate an incoming email</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Creates a ticket through the same pipeline the Mailgun webhook uses, then runs the
-          classify and auto-resolve workers on it.
+          TypeSafe triage and auto-resolve worker on it.
         </p>
 
         <div className="mt-4 flex flex-col gap-1.5">

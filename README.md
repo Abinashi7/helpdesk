@@ -1,10 +1,10 @@
 # Helpdesk
 
-AI-powered email ticket management. Customer emails arrive through a Mailgun inbound route, an LLM classifies each one and auto-answers the questions it can ground in a knowledge base, and anything it isn't confident about is escalated to a human agent with the thread intact.
+AI-powered email ticket management. Customer emails arrive through a Mailgun inbound route, TypeSafe Jev classifies and routes each one, and OpenAI writes replies only for questions Jev can confidently ground in the knowledge base. Everything else is escalated to a human agent with the thread intact.
 
 The goal is not to replace support agents — it's to keep repetitive, already-documented questions off their queue while making sure the ambiguous, angry, or legally sensitive messages always reach a person.
 
-The interesting part of this project is not that it calls an LLM. It's **where the LLM is not allowed to answer**: the auto-resolve worker must clear a self-reported confidence bar of `0.85`, and a set of hard rules — legal threats, chargebacks, refunds outside the 30-day window, account-security issues — escalate to a human no matter how confident the model is. Every ticket records the score it was judged on, so both decisions are visible in the UI rather than buried in a log.
+The interesting part of this project is not that it calls an LLM. It's **where generation is not allowed**: one Jev request produces typed category, grounding, and escalation signals; conservative thresholds in TypeScript decide whether OpenAI may write a reply. Every ticket records the full decision payload and token usage so both outcomes are visible and auditable.
 
 ---
 
@@ -19,25 +19,25 @@ reassign, change status, and use the AI features, but `/users` is admin-only and
 
 ### Watch the AI triage a ticket
 
-![Demo: a ticket auto-resolved at 0.92 confidence, and a legal threat escalated at the same score](docs/demo.gif)
+![Demo: an answerable ticket auto-resolved and a legal threat escalated](docs/demo.gif)
 
-*Two emails, both scored 0.92. The first is auto-resolved and cited back to the knowledge base
-section it came from; the second contains a legal threat, so an escalation rule overrides the
-score. Higher quality: [demo.mp4](docs/demo.mp4).*
+*The first email is auto-resolved and cited back to the selected knowledge-base section; the
+second contains a legal threat, so its independent escalation signal routes it to a human.
+Higher quality: [demo.mp4](docs/demo.mp4).*
 
 The demo's point is the pipeline, so you can run it yourself: **Tickets → Simulate incoming
 email**. That posts through the same code path the Mailgun webhook uses and runs the real
-classify and auto-resolve workers. Three presets show the three outcomes:
+auto-resolve worker. Three presets show the three outcomes:
 
 | Preset | What happens |
 |---|---|
-| *Answerable from the KB* | Resolved automatically, ~0.92 confidence, AI reply in the thread |
-| *Blocked by an escalation rule* | Confidence stays high, but the legal-threat rule routes it to a human |
-| *Not covered by the KB* | Confidence near zero — the model declines rather than inventing an answer |
+| *Answerable from the KB* | Clears the conservative Jev gates and receives an AI reply |
+| *Blocked by an escalation rule* | A legal-threat signal routes it to a human even when KB coverage is high |
+| *Not covered by the KB* | Low KB coverage routes it to a human rather than inventing an answer |
 
 The ticket page polls while the workers run, so you see `new → processing → resolved`
-or `open` rather than a finished result. The sidebar shows the score it was judged on
-and the knowledge base section the answer was grounded in.
+or `open` rather than a finished result. The sidebar shows the route, reasons, KB coverage,
+and selected knowledge-base section.
 
 The deployment runs with `DEMO_MODE=true`, so outbound email is logged instead of
 delivered, the AI endpoints are capped, and user management is blocked.
@@ -78,9 +78,10 @@ delivered, the AI endpoints are capped, and user management is blocked.
 - Deduplicates on RFC `Message-Id`, so Mailgun's delivery retries can't create duplicate tickets
 
 **AI triage**
-- **Classify worker** tags each ticket `billing` / `technical` / `account` / `general`
-- **Auto-resolve worker** answers only from `knowledge-base.md`, and must clear a `0.85` confidence bar before it will reply
-- Hard-coded escalation rules: legal threats, chargebacks, refunds outside the 30-day window, and account-security issues are never auto-answered
+- A single TypeSafe Jev request tags each ticket and returns typed KB-coverage, section, and escalation judgments
+- Conservative TypeScript gates require 0.90 KB coverage, 0.80 section confidence, and no escalation signal at or above 0.20
+- OpenAI `gpt-5-nano` writes approved replies using only the selected knowledge-base section
+- Legal threats, chargebacks, actionable or unclear refunds, and account-security issues are never auto-answered
 - On escalation the ticket flips back to `open` and unassigns, landing it in the human queue
 
 **Agent workspace**
@@ -104,6 +105,7 @@ flowchart TB
     agent([Support agent])
     mgIn[Mailgun inbound route]
     mgOut[Mailgun outbound]
+    jev{{TypeSafe Jev 1.13}}
     llm{{OpenAI gpt-5-nano}}
     spa[React SPA :5173]
 
@@ -122,19 +124,19 @@ flowchart TB
     end
 
     subgraph workers["Background workers"]
-        classify[classify]
         resolve[auto-resolve]
         send[send-email]
     end
 
     api -->|create ticket| db
     api -->|enqueue| queue
-    queue --> classify
     queue --> resolve
     queue --> send
 
-    classify -->|category| db
-    resolve -->|knowledge-base.md| llm
+    resolve -->|ticket + knowledge-base.md| jev
+    jev -->|typed routing signals| resolve
+    resolve -->|approved ticket + selected KB section| llm
+    llm -->|generated reply| resolve
     resolve -->|resolve or escalate| db
     resolve -->|enqueue reply| queue
 
@@ -177,7 +179,8 @@ The queue is **pg-boss backed by Postgres**, not Redis. `ioredis` and `bullmq` a
 | Database | PostgreSQL 16, Prisma 7 (`pgvector` extension enabled) |
 | Queue | pg-boss 12 (Postgres-backed) |
 | Auth | better-auth 1.6 (email + password, `customSession` plugin for roles) |
-| AI | Vercel AI SDK 4 + `@ai-sdk/openai`, model `gpt-5-nano` |
+| AI routing | TypeSafe SDK + pinned `jev-1.13.0` |
+| AI generation | Vercel AI SDK 4 + `@ai-sdk/openai`, model `gpt-5-nano` |
 | Email | Mailgun (`mailgun.js`) — inbound routes and outbound sends |
 | Frontend | React 19, Vite 6, React Router 7, TanStack Query 5, TanStack Table 8 |
 | UI | Tailwind CSS 4, shadcn/ui (`base-nova`), Recharts, Lucide |
@@ -203,7 +206,7 @@ helpdesk/
 
 ## Local setup
 
-**Prerequisites:** [Bun](https://bun.sh) (developed against 1.3), Docker, and an OpenAI API key.
+**Prerequisites:** [Bun](https://bun.sh) (developed against 1.3), Docker, a TypeSafe API key, and an OpenAI API key.
 
 ```bash
 # 1. Clone and install
@@ -218,7 +221,7 @@ docker compose up -d
 cp .env.example .env
 # Generate the auth secret — startup fails on the placeholder value:
 openssl rand -base64 32     # paste into BETTER_AUTH_SECRET
-# Set OPENAI_API_KEY and SEED_ADMIN_PASSWORD too.
+# Set TYPESAFE_API_KEY, OPENAI_API_KEY and SEED_ADMIN_PASSWORD too.
 
 # 4. Set up the database
 cd backend
@@ -248,7 +251,7 @@ That runs two scripts, both of which require `bun run db:seed` to have created t
   AI resolution rate and average resolution time report real numbers. The AI is credited
   only on tickets the escalation rules in `src/workers/autoResolve.ts` would have allowed
   it to answer — refunds, chargebacks, legal threats and account-security issues stay
-  human-handled, and untagged tickets are skipped because the classify worker runs first.
+  human-handled; the production worker now assigns category and route in one Jev pass.
 - **`scripts/seed-long-thread.ts`** — one 50-message thread on its own ticket, for
   demoing the **Summarize** action against a genuinely long conversation.
 
@@ -306,7 +309,8 @@ Copy `.env.example` to `.env`. The backend loads it via `--env-file ../.env` and
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string. Also backs the pg-boss job queues. |
 | `BETTER_AUTH_SECRET` | Signs session tokens. Minimum 32 chars; the literal placeholder from `.env.example` is rejected. Generate with `openssl rand -base64 32`. |
-| `OPENAI_API_KEY` | Used by the classify worker, auto-resolve worker, and the summarize/polish endpoints. See the caveat below. |
+| `TYPESAFE_API_KEY` | Used by the auto-resolve worker for classification, KB grounding, and escalation judgments. |
+| `OPENAI_API_KEY` | Used to write approved replies and by the summarize/polish endpoints. |
 
 ### Auth and app
 
@@ -339,8 +343,7 @@ Copy `.env.example` to `.env`. The backend loads it via `--env-file ../.env` and
 | `SENTRY_ENVIRONMENT` | `production` or `development`. |
 | `VITE_API_URL` | Frontend only, set in `frontend/.env`. Defaults to `http://localhost:3001`. |
 
-> [!IMPORTANT]
-> `backend/src/config/env.ts` declares `ANTHROPIC_API_KEY` but nothing reads it — it's a leftover from before the migration to OpenAI. Meanwhile `OPENAI_API_KEY`, which the app genuinely requires, is **not** in the Zod schema, because `@ai-sdk/openai` reads it straight from `process.env`. The practical consequence: if you forget `OPENAI_API_KEY`, the server starts cleanly and only the AI features fail, at runtime, in a worker. Adding it to the schema would turn that into a startup error.
+`backend/src/config/env.ts` declares both AI keys so configuration is documented in the validated environment shape. They remain optional at process startup so API and e2e environments can run without external model calls; a missing key makes the worker fail closed and route the ticket to a human.
 
 ---
 
@@ -369,14 +372,14 @@ Measures currently in place:
 **Product**
 
 - **Customer replies create new tickets.** `createTicketFromEmail` only deduplicates on `Message-Id`; there is no in-reply-to threading, so a customer answering an auto-reply opens a second ticket instead of continuing the first. Nothing in the app writes a `customer`-type reply — those exist only in seed data.
-- **pgvector is enabled but unused.** The extension is declared in the Prisma schema, yet no model has a vector column. The knowledge base is passed to the model as one whole markdown file on every call, with no retrieval or chunking, so it will not scale past a few thousand tokens.
+- **pgvector is enabled but unused.** The extension is declared in the Prisma schema, yet no model has a vector column. Jev receives the current small knowledge base as structured sections on every call, so retrieval will be needed as the document grows.
 
 **AI**
 
 - **No human review before send.** When the auto-resolve worker clears its confidence bar, the reply is written to the thread and emailed to the customer immediately. There is no approval queue and no undo.
-- **Confidence is self-reported.** The `0.85` threshold is a number the model produces about its own coverage of the knowledge base. It is stored on the ticket and shown in the UI, but it correlates with correctness rather than guaranteeing it, and it is not calibrated against measured accuracy.
+- **Probabilities need calibration.** Jev returns calibrated decision probabilities, but the initial 0.90/0.80/0.20 gates have not yet been tuned against a labeled production dataset.
 - **Grounding is instructional, not enforced.** The prompt says to answer only from the knowledge base, but nothing verifies the reply against it afterwards. A confident, fluent, wrong answer is possible.
-- **The escalation rules are keyword-driven judgement calls** made by the model — legal threats, chargebacks, out-of-window refunds, security issues. Paraphrasing that the model doesn't recognise as one of those categories can slip through.
-- **Classification failures are silent.** If the model returns a category outside the enum, the worker logs a warning and moves on, leaving the ticket uncategorised rather than retrying.
+- **Escalation rules still depend on semantic judgments.** Jev evaluates legal threats, chargebacks, refunds, and security issues separately; adversarial or unfamiliar phrasing can still be misclassified.
+- **Model failures fail closed.** Invalid TypeSafe output, missing credentials, and generation errors send the ticket to the unassigned human queue and are recorded in `aiDecision`.
 - **The shipped knowledge base is for a fictional online course platform** ("Northwind Academy"), and the auto-resolve prompt hardcodes that name in its system prompt and reply signature. Both need editing before this is useful for anything else. Note the seeded tickets are B2B SaaS support requests, so they only partly overlap what the knowledge base covers — that gap is why some tickets escalate.
 - **`gpt-5-nano` is the smallest model in its family**, chosen for cost. Quality on ambiguous or multi-part tickets is meaningfully below what a larger model produces.

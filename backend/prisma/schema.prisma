@@ -54,6 +54,9 @@ model Ticket {
   // outcomes: a resolve and an escalation.
   aiConfidence Float?
   aiKbSection  String?
+  // Versioned audit payload for the TypeSafe routing decision and, when used,
+  // the OpenAI generation call. Nullable so historical tickets remain valid.
+  aiDecision   Json?
   replies      Reply[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt

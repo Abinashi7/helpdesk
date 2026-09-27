@@ -1,6 +1,53 @@
 import { z } from 'zod';
 import { TicketStatus, TicketCategory, ReplySenderType } from '../enums.js';
 
+export type AiDecisionReason =
+  | 'not_genuine_support_request'
+  | 'legal_threat'
+  | 'chargeback_or_dispute'
+  | 'account_security'
+  | 'refund_requires_human'
+  | 'kb_not_complete'
+  | 'kb_section_uncertain'
+  | 'typesafe_error'
+  | 'generation_error';
+
+export interface AiDecisionAudit {
+  schemaVersion: 1;
+  provider: 'typesafe';
+  model: string;
+  decision: 'auto_resolve' | 'human_review';
+  reasons: AiDecisionReason[];
+  category: {
+    choice: TicketCategory;
+    confidence: number;
+    probabilities: Record<TicketCategory, number>;
+  } | null;
+  kb: {
+    answerProbability: number;
+    sectionId: string | null;
+    sectionTitle: string | null;
+    sectionConfidence: number;
+    sectionProbabilities: Record<string, number>;
+  } | null;
+  escalation: {
+    genuineSupport: number;
+    legalThreat: number;
+    chargebackOrDispute: number;
+    accountSecurity: number;
+    refundRequiresHuman: number;
+  } | null;
+  usage: {
+    typesafe: { inputTokens: number; outputTokens: number } | null;
+    openai: {
+      model: 'gpt-5-nano';
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    } | null;
+  };
+}
+
 export interface Ticket {
   id: number;
   subject: string;
@@ -14,6 +61,7 @@ export interface Ticket {
   /** Auto-resolve worker's confidence (0-1) and the KB section it grounded the answer in. */
   aiConfidence: number | null;
   aiKbSection: string | null;
+  aiDecision: AiDecisionAudit | null;
   createdAt: string;
   updatedAt: string;
 }

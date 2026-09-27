@@ -156,8 +156,7 @@ const NEVER_AUTO_RESOLVED = new RegExp(
 type SeedTicket = (typeof tickets)[number];
 
 function isAutoResolvable(t: SeedTicket): boolean {
-  // The classify worker runs before auto-resolve, so an untagged ticket never
-  // reaches the AI answerer — those stay uncategorised and human-handled.
+  // Leave some historical tickets untagged and human-handled.
   if (!t.category) return false;
   return !NEVER_AUTO_RESOLVED.test(`${t.subject} ${t.body}`);
 }

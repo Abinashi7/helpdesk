@@ -40,16 +40,21 @@ async function createTicket(
   request: APIRequestContext,
   overrides: TicketPayload = {},
 ): Promise<number> {
+  const {
+    subject = uid('Subject'),
+    body = 'Test body content',
+    fromEmail = 'sender@test.example',
+    fromName = 'Test Sender',
+    messageId = uid('msg'),
+  } = overrides;
+  // Mailgun inbound-route shape: form-encoded, Message-Id inside message-headers.
   const res = await request.post(WEBHOOK_URL, {
-    data: {
-      subject: uid('Subject'),
-      body: 'Test body content',
-      fromEmail: 'sender@test.example',
-      fromName: 'Test Sender',
-      messageId: uid('msg'),
-      ...overrides,
+    form: {
+      from: `${fromName} <${fromEmail}>`,
+      subject,
+      'stripped-text': body,
+      'message-headers': JSON.stringify([['Message-Id', `<${messageId}>`]]),
     },
-    headers: { 'Content-Type': 'application/json' },
   });
   expect(res.status()).toBe(200);
   const json = await res.json() as { ok: boolean; ticketId: number };

@@ -48,6 +48,8 @@ const envSchema = z.object({
 
   // AI
   ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  TYPESAFE_API_KEY: z.string().optional(),
 
   // Demo mode — for the public portfolio deployment. Suppresses outbound email,
   // rate-limits the AI endpoints, and blocks destructive user management, so

@@ -92,9 +92,6 @@ router.post('/email', urlencoded, upload.any(), verifyMailgunWebhook, async (req
     messageId,
   });
 
-  if (!ticket.category) {
-    boss.send('classify', { ticket });
-  }
   boss.send('auto-resolve', { ticket });
 
   res.json({ ok: true, ticketId: ticket.id });

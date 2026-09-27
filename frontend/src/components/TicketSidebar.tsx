@@ -18,6 +18,18 @@ const selectClass =
   'w-full rounded-md border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50';
 const labelClass = 'text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block';
 
+const decisionReasonLabels = {
+  not_genuine_support_request: 'Not a genuine support request',
+  legal_threat: 'Possible legal threat',
+  chargeback_or_dispute: 'Chargeback or disputed charge',
+  account_security: 'Account-security concern',
+  refund_requires_human: 'Refund requires human handling',
+  kb_not_complete: 'Knowledge base does not fully answer the request',
+  kb_section_uncertain: 'Knowledge-base section is uncertain',
+  typesafe_error: 'TypeSafe triage failed',
+  generation_error: 'Reply generation failed',
+} as const;
+
 export default function TicketSidebar({ ticket }: Props) {
   const queryClient = useQueryClient();
   const ticketKey = ['ticket', String(ticket.id)];
@@ -92,7 +104,31 @@ export default function TicketSidebar({ ticket }: Props) {
         </select>
       </div>
 
-      {ticket.aiConfidence != null && (
+      {ticket.aiDecision ? (
+        <div className="border-t pt-4">
+          <label className={labelClass}>AI Triage</label>
+          <p className="text-sm">
+            {ticket.aiDecision.decision === 'auto_resolve' ? 'Auto-resolved' : 'Sent to human review'}
+            {' by '}
+            <span className="font-medium">{ticket.aiDecision.model}</span>
+          </p>
+          {ticket.aiDecision.kb && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              KB coverage {ticket.aiDecision.kb.answerProbability.toFixed(2)}
+              {ticket.aiDecision.kb.sectionTitle && (
+                <> · {ticket.aiDecision.kb.sectionTitle} ({ticket.aiDecision.kb.sectionConfidence.toFixed(2)} section confidence)</>
+              )}
+            </p>
+          )}
+          {ticket.aiDecision.reasons.length > 0 && (
+            <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+              {ticket.aiDecision.reasons.map((reason) => (
+                <li key={reason}>{decisionReasonLabels[reason]}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : ticket.aiConfidence != null ? (
         <div className="border-t pt-4">
           <label className={labelClass}>AI Triage</label>
           <p className="text-sm">
@@ -113,7 +149,7 @@ export default function TicketSidebar({ ticket }: Props) {
             </p>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

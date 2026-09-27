@@ -47,7 +47,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 /**
  * Demo-only counterpart to the Mailgun inbound webhook: creates a ticket and enqueues
- * the same classify + auto-resolve jobs, so a visitor can watch the AI pipeline run
+ * the same auto-resolve job, so a visitor can watch the AI pipeline run
  * without sending real email. Off unless DEMO_MODE is set.
  */
 router.post('/simulate-email', requireAuth, async (req, res) => {
@@ -64,7 +64,6 @@ router.post('/simulate-email', requireAuth, async (req, res) => {
     messageId: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
   });
 
-  if (!ticket.category) boss.send('classify', { ticket });
   boss.send('auto-resolve', { ticket });
 
   res.status(201).json({ ticketId: ticket.id });

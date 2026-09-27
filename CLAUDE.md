@@ -1,14 +1,14 @@
 # Helpdesk — Project Memory
 
 ## What this is
-AI-powered email ticket management system. Emails arrive via a Mailgun inbound-route webhook, Claude classifies and auto-replies to common questions from a knowledge base, complex ones are routed to human agents.
+AI-powered email ticket management system. Emails arrive via a Mailgun inbound-route webhook, TypeSafe Jev classifies and routes them, and OpenAI writes replies only for questions grounded in the knowledge base.
 
 ## Stack
 - **Runtime**: Bun
 - **Backend**: Express 5 + TypeScript + Prisma 6 (PostgreSQL + pgvector) + Redis + BullMQ
 - **Frontend**: React 19 + Vite 6 + Tailwind CSS 4 + shadcn/ui
 - **Auth**: better-auth (email+password, sign-up disabled — admin created via seed only)
-- **AI**: OpenAI `gpt-5-nano` (default model for all AI features — classify worker, auto-resolve worker, summarize endpoint)
+- **AI**: TypeSafe `jev-1.13.0` for typed triage; OpenAI `gpt-5-nano` for approved replies, summarize, and polish
 - **Email**: Mailgun (`mailgun.js`) — outbound sends and inbound routes. Migrated off SendGrid in Aug 2026 when its permanent free tier was retired.
 
 ## Email (Mailgun)

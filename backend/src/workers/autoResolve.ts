@@ -1,69 +1,99 @@
 import { readFileSync } from 'fs';
 import { openai } from '@ai-sdk/openai';
-import { generateObject, jsonSchema } from 'ai';
-import { TicketStatus, ReplySenderType } from '@helpdesk/core';
+import { generateText } from 'ai';
+import { TypeSafeClient } from '@typesafe-ai/sdk';
+import { TicketStatus, ReplySenderType, type AiDecisionAudit } from '@helpdesk/core';
+import { Prisma } from '../../generated/prisma/client.js';
 import { boss } from '../lib/boss.js';
 import { prisma } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
 import { AI_AGENT_EMAIL } from '../lib/constants.js';
 import type { Ticket } from '../lib/types.js';
+import {
+  GENERATION_MODEL,
+  JEV_MODEL,
+  createReplyPrompt,
+  createTriageRequest,
+  evaluateTriage,
+  failedAudit,
+  parseKnowledgeBase,
+} from './triage.js';
 
 const knowledgeBase = readFileSync(
   new URL('../../../knowledge-base.md', import.meta.url),
   'utf-8',
 );
+const knowledgeBaseSections = parseKnowledgeBase(knowledgeBase);
 
-type AutoResolveResult = { shouldResolve: boolean; confidence: number; kbSection: string; replyBody: string };
+if (knowledgeBaseSections.length === 0) {
+  throw new Error('No answer sections found in knowledge-base.md');
+}
 
-const schema = jsonSchema<AutoResolveResult>({
-  type: 'object',
-  properties: {
-    shouldResolve: {
-      type: 'boolean',
-      description: 'True ONLY if the knowledge base contains a direct, complete answer to the customer\'s question.',
-    },
-    confidence: {
-      type: 'number',
-      minimum: 0,
-      maximum: 1,
-      description: 'How confident you are (0–1) that the knowledge base fully covers this question. NOT a measure of how well you can generate a reply.',
-    },
-    kbSection: {
-      type: 'string',
-      description: 'The knowledge base section heading the answer is grounded in, copied verbatim (e.g. "1. Account & Login Issues"). Empty string if no section covers the question.',
-    },
-    replyBody: {
-      type: 'string',
-      description: 'The reply to send. Must be empty string if shouldResolve is false.',
-    },
+let typesafeClient: TypeSafeClient | undefined;
+
+function getTypeSafeClient(): TypeSafeClient {
+  typesafeClient ??= new TypeSafeClient({
+    apiKey: process.env.TYPESAFE_API_KEY,
+    defaultModel: JEV_MODEL,
+    logLevel: 'warn',
+  });
+  return typesafeClient;
+}
+
+export interface AutoResolveDependencies {
+  triage: (ticket: Ticket) => Promise<ReturnType<typeof evaluateTriage>>;
+  generateReply: (
+    ticket: Ticket,
+    section: ReturnType<typeof parseKnowledgeBase>[number],
+  ) => Promise<{
+    text: string;
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }>;
+}
+
+const defaultDependencies: AutoResolveDependencies = {
+  async triage(ticket) {
+    const result = await getTypeSafeClient().systemOne(
+      createTriageRequest(ticket, knowledgeBaseSections),
+    );
+    return evaluateTriage(result, knowledgeBaseSections);
   },
-  required: ['shouldResolve', 'confidence', 'kbSection', 'replyBody'],
-  additionalProperties: false,
-});
+  async generateReply(ticket, section) {
+    const { system, prompt } = createReplyPrompt(ticket, section);
+    const { text, usage } = await generateText({
+      model: openai(GENERATION_MODEL),
+      system,
+      prompt,
+    });
+    return { text, usage };
+  },
+};
 
-const SYSTEM_PROMPT = `You are a customer support AI for Northwind Academy. Answer ONLY using the knowledge base below. Do NOT use outside knowledge or make up answers.
+function jsonAudit(audit: AiDecisionAudit): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(audit)) as Prisma.InputJsonValue;
+}
 
-Set shouldResolve to false and replyBody to "" if ANY of these apply:
-- The message is not a genuine support question (e.g. test emails, gibberish, greetings with no question)
-- The question cannot be answered directly from the knowledge base
-- The answer would require information not present in the knowledge base
-- The customer threatens legal action
-- The customer requests a refund outside the 30-day window
-- The customer disputes a charge or mentions a chargeback
-- The issue involves account security concerns
-- Your confidence that the knowledge base fully covers the question is below 0.85
+async function routeToHuman(
+  ticket: Ticket,
+  audit: AiDecisionAudit,
+  category: Ticket['category'],
+) {
+  await prisma.ticket.update({
+    where: { id: ticket.id },
+    data: {
+      status: TicketStatus.open,
+      assignedToId: null,
+      category,
+      aiConfidence: audit.kb?.answerProbability ?? null,
+      aiKbSection: audit.kb?.sectionTitle ?? null,
+      aiDecision: jsonAudit(audit),
+    },
+  });
+}
 
-Always set kbSection to the heading of the knowledge base section you relied on, copied verbatim, or "" if none covers the question.
-
-When shouldResolve is true, write a complete, professional reply in replyBody.
-Start with "Hi [customer first name]," and close with "Best regards,\\nNorthwind Academy Support".
-
-KNOWLEDGE BASE:
-${knowledgeBase}`;
-
-export async function registerAutoResolveWorker() {
-  // The AI account authors its own replies — attributing them to the admin made an
-  // auto-resolved answer look like a human agent wrote it.
+export async function registerAutoResolveWorker(
+  dependencies: AutoResolveDependencies = defaultDependencies,
+) {
   const { id: aiAgentId } = await prisma.user.findUniqueOrThrow({
     where: { email: AI_AGENT_EMAIL },
     select: { id: true },
@@ -76,7 +106,7 @@ export async function registerAutoResolveWorker() {
 
     const current = await prisma.ticket.findUnique({
       where: { id: ticket.id },
-      select: { status: true },
+      select: { status: true, category: true },
     });
     if (current?.status !== TicketStatus.new) {
       logger.info({ ticketId: ticket.id }, 'auto-resolve: ticket no longer new, skipping');
@@ -89,65 +119,134 @@ export async function registerAutoResolveWorker() {
     });
 
     try {
-      const { object } = await generateObject({
-        model: openai('gpt-5-nano'),
-        schema,
-        system: SYSTEM_PROMPT,
-        prompt: `Subject: ${ticket.subject}\nFrom: ${ticket.fromName} (${ticket.fromEmail})\n\n${ticket.body}`,
-      });
-
-      // The model copies the heading verbatim, which can include the markdown hashes.
-      const kbSection = object.kbSection.replace(/^#+\s*/, '').trim() || null;
-
-      if (!object.shouldResolve || object.confidence < 0.85) {
-        await prisma.ticket.update({
-          where: { id: ticket.id },
-          data: {
-            status: TicketStatus.open,
-            assignedToId: null,
-            aiConfidence: object.confidence,
-            aiKbSection: kbSection,
-          },
-        });
-        logger.info({ ticketId: ticket.id, confidence: object.confidence }, 'auto-resolve: escalating to human agent');
-        return;
-      }
-
-      await prisma.$transaction([
-        prisma.reply.create({
-          data: {
-            ticketId: ticket.id,
-            authorId: aiAgentId,
-            body: object.replyBody,
-            senderType: ReplySenderType.agent,
-          },
-        }),
-        prisma.ticket.update({
-          where: { id: ticket.id },
-          data: {
-            status: TicketStatus.resolved,
-            resolvedByAi: true,
-            resolvedAt: new Date(),
-            aiConfidence: object.confidence,
-            aiKbSection: kbSection,
-          },
-        }),
-      ]);
-
-      logger.info({ ticketId: ticket.id }, 'auto-resolve: ticket resolved by AI');
-
-      boss.send('send-email', {
-        to: ticket.fromEmail,
-        subject: `Re: ${ticket.subject}`,
-        text: object.replyBody,
-      });
+      await triageAndRespond(ticket, current.category, aiAgentId, dependencies);
     } catch (err) {
-      logger.error({ ticketId: ticket.id, err }, 'auto-resolve: error, reverting to open');
-      await prisma.ticket.update({
-        where: { id: ticket.id },
-        data: { status: TicketStatus.open },
+      // The handled paths in triageAndRespond already route failures to a human. This
+      // catches anything else (e.g. a failed DB write) that would otherwise strand the
+      // ticket in processing — retries skip tickets that are no longer new. Scoped to
+      // processing so a ticket that was already resolved is not reopened.
+      await prisma.ticket.updateMany({
+        where: { id: ticket.id, status: TicketStatus.processing },
+        data: { status: TicketStatus.open, assignedToId: null },
       });
+      logger.error({ ticketId: ticket.id, err }, 'auto-resolve: unexpected error, reverted to open');
       throw err;
     }
   });
+}
+
+/**
+ * Runs triage and, when approved, reply generation for a ticket the worker has
+ * already claimed. `category` is read fresh from the DB at claim time rather than
+ * from the job payload, so an agent's edit made while the job was queued survives.
+ */
+async function triageAndRespond(
+  ticket: Ticket,
+  currentCategory: Ticket['category'],
+  aiAgentId: string,
+  dependencies: AutoResolveDependencies,
+) {
+  const triageStartedAt = Date.now();
+  let audit: AiDecisionAudit;
+  let selectedSection: ReturnType<typeof parseKnowledgeBase>[number] | null;
+
+  try {
+    ({ audit, selectedSection } = await dependencies.triage(ticket));
+  } catch (err) {
+    audit = failedAudit('typesafe_error');
+    await routeToHuman(ticket, audit, currentCategory);
+    logger.error(
+      { ticketId: ticket.id, err, latencyMs: Date.now() - triageStartedAt },
+      'auto-resolve: TypeSafe triage failed; routed to human',
+    );
+    return;
+  }
+
+  const category = currentCategory ?? audit.category!.choice;
+  const logContext = {
+    ticketId: ticket.id,
+    model: audit.model,
+    decision: audit.decision,
+    reasons: audit.reasons,
+    latencyMs: Date.now() - triageStartedAt,
+    inputTokens: audit.usage.typesafe?.inputTokens,
+    outputTokens: audit.usage.typesafe?.outputTokens,
+  };
+
+  if (audit.decision === 'human_review' || !selectedSection) {
+    await routeToHuman(ticket, audit, category);
+    logger.info(logContext, 'auto-resolve: TypeSafe routed ticket to human');
+    return;
+  }
+
+  const generationStartedAt = Date.now();
+  let replyBody: string;
+  let generationUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  try {
+    const { text, usage } = await dependencies.generateReply(ticket, selectedSection);
+    replyBody = text.trim();
+    if (!replyBody) throw new Error('OpenAI returned an empty reply');
+    generationUsage = usage;
+  } catch (err) {
+    audit.decision = 'human_review';
+    audit.reasons = [...audit.reasons, 'generation_error'];
+    await routeToHuman(ticket, audit, category);
+    logger.error(
+      {
+        ...logContext,
+        decision: audit.decision,
+        reasons: audit.reasons,
+        err,
+        generationLatencyMs: Date.now() - generationStartedAt,
+      },
+      'auto-resolve: reply generation failed; routed to human',
+    );
+    return;
+  }
+
+  audit.usage.openai = {
+    model: GENERATION_MODEL,
+    promptTokens: generationUsage.promptTokens,
+    completionTokens: generationUsage.completionTokens,
+    totalTokens: generationUsage.totalTokens,
+  };
+
+  await prisma.$transaction([
+    prisma.reply.create({
+      data: {
+        ticketId: ticket.id,
+        authorId: aiAgentId,
+        body: replyBody,
+        senderType: ReplySenderType.agent,
+      },
+    }),
+    prisma.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        category,
+        status: TicketStatus.resolved,
+        resolvedByAi: true,
+        resolvedAt: new Date(),
+        aiConfidence: audit.kb!.answerProbability,
+        aiKbSection: selectedSection.title,
+        aiDecision: jsonAudit(audit),
+      },
+    }),
+  ]);
+
+  await boss.send('send-email', {
+    to: ticket.fromEmail,
+    subject: `Re: ${ticket.subject}`,
+    text: replyBody,
+  });
+
+  logger.info(
+    {
+      ...logContext,
+      generationLatencyMs: Date.now() - generationStartedAt,
+      openaiPromptTokens: generationUsage.promptTokens,
+      openaiCompletionTokens: generationUsage.completionTokens,
+    },
+    'auto-resolve: ticket resolved by AI',
+  );
 }
