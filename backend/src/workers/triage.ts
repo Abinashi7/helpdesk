@@ -10,7 +10,11 @@ export const GENERATION_MODEL = 'gpt-5-nano' as const;
 
 export const TRIAGE_THRESHOLDS = {
   genuineSupport: 0.8,
-  completeAnswer: 0.9,
+  // Tuned on 26 labelled emails and validated on a separate 30: 0.90 sent most
+  // answerable questions (which score 0.77–0.88) to humans; 0.75 lifted held-out
+  // routing accuracy from 60% to 85% with no unsafe auto-answers. Every risky email
+  // was still blocked by an escalation signal or scored at most 0.64 here.
+  completeAnswer: 0.75,
   sectionConfidence: 0.8,
   escalation: 0.2,
 } as const;

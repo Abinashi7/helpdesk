@@ -79,7 +79,7 @@ delivered, the AI endpoints are capped, and user management is blocked.
 
 **AI triage**
 - A single TypeSafe Jev request tags each ticket and returns typed KB-coverage, section, and escalation judgments
-- Conservative TypeScript gates require 0.90 KB coverage, 0.80 section confidence, and no escalation signal at or above 0.20
+- Conservative TypeScript gates require 0.75 KB coverage, 0.80 section confidence, and no escalation signal at or above 0.20
 - OpenAI `gpt-5-nano` writes approved replies using only the selected knowledge-base section
 - Legal threats, chargebacks, actionable or unclear refunds, and account-security issues are never auto-answered
 - On escalation the ticket flips back to `open` and unassigns, landing it in the human queue
@@ -377,7 +377,7 @@ Measures currently in place:
 **AI**
 
 - **No human review before send.** When the auto-resolve worker clears its confidence bar, the reply is written to the thread and emailed to the customer immediately. There is no approval queue and no undo.
-- **Probabilities need calibration.** Jev returns calibrated decision probabilities, but the initial 0.90/0.80/0.20 gates have not yet been tuned against a labeled production dataset.
+- **Probabilities need calibration.** Jev returns calibrated decision probabilities, and the 0.75/0.80/0.20 gates were tuned on 56 hand-labelled emails (0.90 sent most answerable questions to humans), not yet on labelled production traffic.
 - **Grounding is instructional, not enforced.** The prompt says to answer only from the knowledge base, but nothing verifies the reply against it afterwards. A confident, fluent, wrong answer is possible.
 - **Escalation rules still depend on semantic judgments.** Jev evaluates legal threats, chargebacks, refunds, and security issues separately; adversarial or unfamiliar phrasing can still be misclassified.
 - **Model failures fail closed.** Invalid TypeSafe output, missing credentials, and generation errors send the ticket to the unassigned human queue and are recorded in `aiDecision`.

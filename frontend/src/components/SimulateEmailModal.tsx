@@ -19,8 +19,8 @@ const PRESETS: { label: string; hint: string; values: SimulateEmailInput }[] = [
     label: 'Answerable from the KB',
     hint: 'The AI should resolve this automatically',
     values: {
-      // Scores ~0.93 KB coverage in Jev — clear of the 0.90 auto-resolve gate. The
-      // earlier password-reset wording scored 0.86 and escalated, breaking the demo.
+      // Scores ~0.93 KB coverage in Jev — well clear of the 0.75 auto-resolve gate. The
+      // earlier password-reset wording scored 0.86, too close to the old 0.90 gate.
       subject: 'Do I get a certificate?',
       body: "I'm about halfway through my course. Will I get a certificate when I finish it?",
       fromName: 'Priya Raman',

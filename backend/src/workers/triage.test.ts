@@ -32,7 +32,7 @@ function result(overrides: Record<string, number | string> = {}): TriageResult {
         probabilities: { section_1: selected === 'section_1' ? 0.9 : 0.05, section_4: 0.05, none: selected === 'none' ? 0.9 : 0.05 },
       },
       genuineSupport: { type: 'noul', noul: Number(overrides.genuineSupport ?? 0.8) },
-      completeKbAnswer: { type: 'noul', noul: Number(overrides.completeKbAnswer ?? 0.9) },
+      completeKbAnswer: { type: 'noul', noul: Number(overrides.completeKbAnswer ?? 0.75) },
       legalThreat: { type: 'noul', noul: Number(overrides.legalThreat ?? 0.19) },
       chargebackOrDispute: { type: 'noul', noul: Number(overrides.chargebackOrDispute ?? 0.19) },
       accountSecurity: { type: 'noul', noul: Number(overrides.accountSecurity ?? 0.19) },
@@ -81,7 +81,7 @@ describe('evaluateTriage', () => {
 
   it.each([
     ['genuineSupport', 0.799, 'not_genuine_support_request'],
-    ['completeKbAnswer', 0.899, 'kb_not_complete'],
+    ['completeKbAnswer', 0.749, 'kb_not_complete'],
     ['sectionConfidence', 0.799, 'kb_section_uncertain'],
     ['legalThreat', 0.2, 'legal_threat'],
     ['chargebackOrDispute', 0.2, 'chargeback_or_dispute'],
